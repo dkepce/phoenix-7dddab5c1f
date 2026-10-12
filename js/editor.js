@@ -330,6 +330,9 @@
       if ((e.ctrlKey || e.metaKey) && k === "z" && !e.shiftKey) { e.preventDefault(); E.undo(); }
       else if ((e.ctrlKey || e.metaKey) && (k === "y" || (k === "z" && e.shiftKey))) { e.preventDefault(); E.redo(); }
       else if (k === "enter") breakNext = true;
+      else if (k === "tab" && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {   // Tab = a paragraph-sized gap (two em-spaces), not "jump to the next button"
+        e.preventDefault(); document.execCommand("insertText", false, "  "); scheduleLayout(true);
+      }
     });
     ed.addEventListener("paste", onPaste);
     ed.addEventListener("drop", e => { e.preventDefault(); });          // no drag & drop of outside content for now
