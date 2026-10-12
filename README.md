@@ -1,0 +1,31 @@
+# Phoenix
+
+A writing room with real stacked pages, for English, German and Turkish. Plain HTML/CSS/JS, no build step — same style as LabGorilla and Hedgehog.
+
+Run it locally: `python -m http.server 8124` in this folder, then open http://localhost:8124
+
+## What it does (step 1: Write)
+
+- Documents in a list on the left, each with its own language (EN / DE / TR) so the browser's spell-check follows it.
+- Word-like pages stacked on a dark desk: page size (A4, A5, A6, B5, Letter, Legal, custom), portrait/landscape, margins, page numbers, paper colour.
+- Text: base font, size, line spacing, paragraph spacing, optional first-line indent; per-selection size/font/bold/italic/underline/strike, headings, quote, lists, alignment.
+- Autosaves into one file, `Phoenix.phx`, in a folder you pick (File System Access API, like LabGorilla's `.lbk`). Falls back to browser storage. Backup/restore from the ⋯ menu. Double-click `.phx` opens it when installed as an app.
+- Print / save as PDF, export a document as plain text.
+
+## How the pages work (so a future session doesn't have to rediscover it)
+
+There is one `contenteditable` column. After every change `js/editor.js` removes and re-inserts invisible `.pgap` spacers so no line is cut by a page edge (block-level before a paragraph, or inline inside a paragraph at the first line that does not fit). The white sheets are drawn behind the text. Because the spacers change the DOM, undo/redo is our own (snapshots of the clean HTML), not the browser's.
+Spacers are never saved: `doc.html` is always the clean HTML.
+
+## Files
+
+- `js/store.js` — data, `.phx` file, folder picker, backup
+- `js/editor.js` — page layout, history, formatting, paste clean-up
+- `js/app.js` — document list, toolbar, dialogs, menu, status bar
+- `Phoenix.phx` — your writing (never committed, see `.gitignore`)
+
+## Next
+
+- Step 2: Study tab (highlight a sentence → send to Study, personal dictionaries per language, word look-up, grammar / vocabulary / examples).
+- Step 3: World cards (characters, places).
+- Not yet: bundled fonts (only fonts already on the computer are offered), images in documents, headings kept with the next paragraph at page ends.
