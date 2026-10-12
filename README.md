@@ -12,6 +12,13 @@ Run it locally: `python -m http.server 8124` in this folder, then open http://lo
 - Autosaves into one file, `Phoenix.phx`, in a folder you pick (File System Access API, like LabGorilla's `.lbk`). Falls back to browser storage. Backup/restore from the ⋯ menu. Double-click `.phx` opens it when installed as an app.
 - Print / save as PDF, export a document as plain text.
 
+## Step 2a: comments + Study tab
+
+- Select text in Write, right-click inside the selection → **Comment…** (or the speech-bubble button in the toolbar). Right-click without a selection still gives the browser's own menu, so spelling suggestions keep working.
+- A comment has a type (Note / Strength / To improve / Language), is painted on the page with the CSS Highlight API (no markup in the document) and stored in `doc.comments`.
+- It is anchored by its **quoted text** plus 24 characters before/after (`quote`, `before`, `after`, hint `pos`), found again after every edit; `page` is kept up to date. If the passage has been edited away the card says so ("passage changed").
+- **Study → Comments** lists them grouped by page; clicking one shows a card quoting the passage with Show in text / Edit / Mark as done / Delete. `author` is "You"; the field exists so critiques written into `Phoenix.phx` by Claude can show up the same way later.
+
 ## How the pages work (so a future session doesn't have to rediscover it)
 
 There is one `contenteditable` column. After every change `js/editor.js` removes and re-inserts invisible `.pgap` spacers so no line is cut by a page edge (block-level before a paragraph, or inline inside a paragraph at the first line that does not fit). The white sheets are drawn behind the text. Because the spacers change the DOM, undo/redo is our own (snapshots of the clean HTML), not the browser's.

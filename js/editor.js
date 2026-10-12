@@ -83,6 +83,7 @@
   function layout() {
     if (!doc || composing) return;
     raf = 0;
+    if (!ed.getClientRects().length) return;           // the Write tab is hidden: nothing to measure (it re-runs when shown again)
     fixSizeSpans();
     stripGaps();
     snapshot();
@@ -148,6 +149,7 @@
     pages = page + 1;
     drawSheets(g);
     applyZoom();
+    refreshSoon();
     if (E.onChange) E.onChange();
   }
   function drawSheets(g) {
@@ -302,7 +304,7 @@
     layout(); stage.scrollTop = 0;
   };
   E.refresh = function () { if (!doc) return; applyStyle(); sheetKey = ""; layout(); };
-  E.unload = function () { doc = null; ed.innerHTML = ""; };
+  E.unload = function () { doc = null; ed.innerHTML = ""; if (hasHL) ["note", "good", "fix", "lang"].forEach(k => CSS.highlights.delete("pxc-" + k)); };
   E.setZoom = function (z) { PX.S.zoom = Math.min(2.5, Math.max(0.4, z)); applyZoom(); PX.saveSoon(); };
   E.fitWidth = function () { const g = geom(); E.setZoom((stage.clientWidth - 48) / g.pw); };
   E.plainText = function (html) {
@@ -311,6 +313,84 @@
     return parts.join("\n\n").trim();
   };
   E.cleanHtml = () => ed.innerHTML.replace(/<(span|div)[^>]*class="pgap[^"]*"[^>]*><\/\1>/g, "");
+
+  /* ---------- comments ----------
+     A comment remembers the passage it is about as quoted text (plus a little text before and after it). We find that passage
+     again whenever needed and paint it with the CSS Highlight API, so the document itself never gets marker tags. */
+  function pageOfY(top) { const y = (top - paper.getBoundingClientRect().top) / zoom; return Math.min(pages, Math.max(1, Math.floor((y + 4) / (geom().ph + GAP)) + 1)); }
+  function flat() {                               // all text of the document as one string, remembering which text node starts where
+    const nodes = []; let text = "", last = null;
+    const w = document.createTreeWalker(ed, NodeFilter.SHOW_TEXT); let n;
+    while ((n = w.nextNode())) {
+      if (n.parentElement && n.parentElement.closest(".pgap")) continue;
+      const u = unitOf(n) || ed;
+      if (last && u !== last && text && !/ $/.test(text)) text += " ";
+      last = u; nodes.push({ n, s: text.length }); text += n.nodeValue.replace(/\s/g, " ");
+    }
+    return { text, nodes };
+  }
+  E.selectionInfo = function () {
+    const s = getSelection(); if (!s.rangeCount || s.isCollapsed || !ed.contains(s.anchorNode)) return null;
+    const r = s.getRangeAt(0), f = flat(); let a = Infinity, b = -1;
+    f.nodes.forEach(e => {
+      if (!r.intersectsNode(e.n)) return; const len = e.n.nodeValue.length;
+      const x = e.n === r.startContainer ? r.startOffset : 0, y = e.n === r.endContainer ? r.endOffset : len;
+      if (y <= x) return; a = Math.min(a, e.s + x); b = Math.max(b, e.s + y);
+    });
+    if (b < 0) return null;
+    while (a < b && f.text[a] === " ") a++; while (b > a && f.text[b - 1] === " ") b--;
+    if (b <= a) return null;
+    const rc = r.getClientRects()[0];
+    return { quote: f.text.slice(a, b), pos: a, before: f.text.slice(Math.max(0, a - 24), a), after: f.text.slice(b, b + 24), page: rc ? pageOfY(rc.top) : 1 };
+  };
+  const common = (a, b, fromEnd) => { let i = 0; while (i < a.length && i < b.length && (fromEnd ? a[a.length - 1 - i] === b[b.length - 1 - i] : a[i] === b[i])) i++; return i; };
+  function findQuote(f, c) {
+    const q = c.quote; if (!q) return -1; let best = -1, score = -Infinity, i = -1;
+    while ((i = f.text.indexOf(q, i + 1)) !== -1) {      // the same words may occur twice: prefer the one with the same surroundings, then the nearest to where it was
+      const sc = (common(f.text.slice(Math.max(0, i - 24), i), c.before || "", true) + common(f.text.slice(i + q.length, i + q.length + 24), c.after || "", false)) * 100000 - Math.abs(i - (c.pos || 0));
+      if (sc > score) { score = sc; best = i; }
+    }
+    return best;
+  }
+  function toRange(f, s, e) {
+    let a = null, b = null;
+    for (const x of f.nodes) {
+      const len = x.n.nodeValue.length;
+      if (!a && x.s + len > s) a = { n: x.n, o: Math.max(0, s - x.s) };
+      if (x.s < e && x.s + len >= e) { b = { n: x.n, o: Math.min(len, e - x.s) }; break; }
+    }
+    if (!a || !b) return null;
+    const r = document.createRange(); r.setStart(a.n, a.o); r.setEnd(b.n, b.o); return r;
+  }
+  const hasHL = !!(window.CSS && CSS.highlights && window.Highlight);
+  E.found = {};                                   // comment id -> was its passage found in the open document?
+  E.refreshComments = function () {
+    if (!doc || !ed.getClientRects().length) return;
+    const list = doc.comments || [], groups = { note: [], good: [], fix: [], lang: [] }; let changed = false; E.found = {};
+    if (list.length) {
+      const f = flat();
+      list.forEach(c => {
+        const i = findQuote(f, c), r = i < 0 ? null : toRange(f, i, i + c.quote.length);
+        E.found[c.id] = !!r;
+        if (!r) { if (c.page) { c.page = 0; changed = true; } return; }
+        const rc = r.getClientRects()[0], pg = rc ? pageOfY(rc.top) : c.page;
+        if (c.pos !== i || c.page !== pg) { c.pos = i; c.page = pg; changed = true; }
+        if (!c.done && groups[c.kind]) groups[c.kind].push(r);
+      });
+    }
+    if (hasHL) Object.keys(groups).forEach(k => { if (groups[k].length) CSS.highlights.set("pxc-" + k, new Highlight(...groups[k])); else CSS.highlights.delete("pxc-" + k); });
+    if (changed) PX.saveSoon();
+    if (E.onComments) E.onComments();
+  };
+  const refreshSoon = U.debounce(() => E.refreshComments(), 300);
+  E.reveal = function (id) {                      // select a comment's passage in the text and scroll to it
+    if (!doc) return false; const c = (doc.comments || []).find(x => x.id === id); if (!c) return false;
+    E.layoutNow(); const f = flat(), i = findQuote(f, c); if (i < 0) return false;
+    const r = toRange(f, i, i + c.quote.length); if (!r) return false;
+    ed.focus(); const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+    const rc = r.getClientRects()[0]; if (rc) { const sr = stage.getBoundingClientRect(); stage.scrollTop += rc.top - sr.top - sr.height / 3; }
+    return true;
+  };
 
   /* ---------- wiring ---------- */
   E.init = function () {
@@ -333,6 +413,12 @@
       else if (k === "tab" && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {   // Tab = a paragraph-sized gap (two em-spaces), not "jump to the next button"
         e.preventDefault(); document.execCommand("insertText", false, "  "); scheduleLayout(true);
       }
+    });
+    ed.addEventListener("contextmenu", e => {         // right-click on selected text: our menu (comment...); anywhere else the browser's own menu (spelling suggestions)
+      const s = getSelection(); if (!E.onContext || !s.rangeCount || s.isCollapsed || !ed.contains(s.anchorNode)) return;
+      const inside = Array.from(s.getRangeAt(0).getClientRects()).some(b => e.clientX >= b.left - 3 && e.clientX <= b.right + 3 && e.clientY >= b.top - 3 && e.clientY <= b.bottom + 3);
+      if (!inside) return; const info = E.selectionInfo(); if (!info) return;
+      e.preventDefault(); E.onContext(e.clientX, e.clientY, info);
     });
     ed.addEventListener("paste", onPaste);
     ed.addEventListener("drop", e => { e.preventDefault(); });          // no drag & drop of outside content for now

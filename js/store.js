@@ -27,7 +27,7 @@
     Object.values(D.docs).forEach(d => {
       d.title = d.title || ""; d.lang = d.lang || "en"; d.html = d.html || "<p><br></p>";
       d.page = Object.assign({}, DEFAULT_PAGE, d.page); d.text = Object.assign({}, DEFAULT_TEXT, d.text);
-      d.created = d.created || Date.now(); d.modified = d.modified || d.created; d.words = d.words || 0;
+      d.created = d.created || Date.now(); d.modified = d.modified || d.created; d.words = d.words || 0; d.comments = d.comments || [];
     });
     PX.S.defaultPage = Object.assign({}, DEFAULT_PAGE, PX.S.defaultPage); PX.S.defaultText = Object.assign({}, DEFAULT_TEXT, PX.S.defaultText);
   };
@@ -35,7 +35,7 @@
 
   PX.newDoc = function (title, html) {
     const id = U.uid(), now = Date.now();
-    PX.D.docs[id] = { id, title: title || "", lang: PX.S.defaultLang, html: html || "<p><br></p>", page: Object.assign({}, PX.S.defaultPage), text: Object.assign({}, PX.S.defaultText), created: now, modified: now, words: 0 };
+    PX.D.docs[id] = { id, title: title || "", lang: PX.S.defaultLang, html: html || "<p><br></p>", page: Object.assign({}, PX.S.defaultPage), text: Object.assign({}, PX.S.defaultText), created: now, modified: now, words: 0, comments: [] };
     return PX.D.docs[id];
   };
   PX.docList = () => Object.values(PX.D.docs).sort((a, b) => b.modified - a.modified);
