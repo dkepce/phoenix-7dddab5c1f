@@ -190,9 +190,9 @@
     let secs;
     if (journal) {
       secs = Object.values(PX.D.docs).filter(x => x.type === "journal").sort((a, b) => (a.meta.date || "").localeCompare(b.meta.date || "") || a.created - b.created).map(x => ({
-        doc: x, pre: '<h2 class="jd">' + U.esc(fmtDate(x.meta.date)) + "</h2>" + (x.title ? '<h3 class="jt">' + U.esc(x.title) + "</h3>" : ""), name: fmtDate(x.meta.date, { day: "numeric", month: "long", year: "numeric" }) }));
+        doc: x, pre: PX.docHeader(x), name: fmtDate(x.meta.date, { day: "numeric", month: "long", year: "numeric" }) }));
     } else {
-      secs = PX.chapters(d.id).map((c, i) => ({ doc: c, pre: '<h2 class="chn">Chapter ' + (i + 1) + "</h2>" + (c.title ? '<h1 class="cht">' + U.esc(c.title) + "</h1>" : ""), name: "Chapter " + (i + 1) + (c.title ? " · " + c.title : "") }));
+      secs = PX.chapters(d.id).map((c, i) => ({ doc: c, pre: PX.docHeader(c), name: "Chapter " + (i + 1) + (c.title ? " · " + c.title : "") }));
     }
     const ref = journal ? (secs[0] ? secs[0].doc : d) : d;                            // page size & type settings of the whole book
     const g = geom(ref.page), pa = PX.PAPER[ref.page.paper] || PX.PAPER.paper;

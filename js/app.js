@@ -131,7 +131,7 @@
     PX.toast(PX.S.trAuto === false ? "Turkish letter autocorrect is off." : "Turkish letter autocorrect is on: finish a word with a space and ç ş ğ ı are put back.");
     E.focus();
   };
-  $("docTitle").addEventListener("input", e => { const d = PX.cur(); if (!d) return; d.title = e.target.value; d.modified = Date.now(); PX.saveSoon(); renderSide(); if (PX.kinds) PX.kinds.render(true); });
+  $("docTitle").addEventListener("input", e => { const d = PX.cur(); if (!d) return; d.title = e.target.value; d.modified = Date.now(); PX.saveSoon(); renderSide(); if (PX.kinds) PX.kinds.render(true); if (d.type === "chapter" || d.type === "journal") E.relayout(); });
   $("docLang").innerHTML = Object.entries(PX.LANGS).map(([k, v]) => '<option value="' + k + '">' + v + "</option>").join("");
   $("docLang").addEventListener("change", e => { const d = PX.cur(); if (!d) return; d.lang = e.target.value; PX.S.defaultLang = d.lang; E.refresh(); PX.saveSoon(); renderSide(); syncTr(); E.focus(); });
   $("btnNew").onclick = () => PX.kinds.chooseNew();
@@ -239,7 +239,7 @@
     const pos = { left: "left", center: "center", right: "right" }[p.numbers];
     const css = "@page{size:" + w + "mm " + h + "mm;margin:" + p.mt + "mm " + p.mr + "mm " + p.mb + "mm " + p.ml + "mm;" +
       (pos ? "@bottom-" + pos + "{content:counter(page);font:10pt Georgia,serif;color:#555}" : "") + "}";
-    $("print").innerHTML = "<style>" + css + '</style><div class="doc-body' + (t.indent ? " indent" : "") + '" style="--font:\'' + t.font + "';--fs:" + t.size + "pt;--lh:" + t.lh + ";--ps:" + t.ps + "em;--C:" + (h - p.mt - p.mb) + 'mm" lang="' + d.lang + '">' + d.html + "</div>";
+    $("print").innerHTML = "<style>" + css + '</style><div class="doc-body' + (t.indent ? " indent" : "") + '" style="--font:\'' + t.font + "';--fs:" + t.size + "pt;--lh:" + t.lh + ";--ps:" + t.ps + "em;--C:" + (h - p.mt - p.mb) + 'mm" lang="' + d.lang + '">' + PX.docHeader(d) + d.html + "</div>";
     PX.img.hydrate($("print"));
     setTimeout(() => { window.print(); }, 50);
   }

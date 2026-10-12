@@ -79,6 +79,27 @@
   }
   function validFrom(ci, idx, max) { for (let i = idx; i <= max && i < idx + 600; i++) { const r = rectAt(ci, i); if (r) return { idx: i, r }; } return null; }
 
+  /* the locked heading of a chapter / journal entry (PX.docHeader): kept at the very top, rebuilt whenever the title, the date or the chapter number changes */
+  function syncHeader() {
+    const t = document.createElement("div"); t.innerHTML = PX.docHeader(doc);
+    const want = Array.from(t.children), cur = Array.from(ed.children).filter(c => c.dataset && c.dataset.hd);
+    if (cur.length && ed.firstElementChild !== cur[0]) cur.forEach(c => c.remove());                   // it ended up somewhere else: start again
+    else if (cur.map(c => c.outerHTML).join("") === want.map(c => c.outerHTML).join("")) return;
+    else cur.forEach(c => c.remove());
+    want.reverse().forEach(n => ed.insertBefore(n, ed.firstChild));
+    if (!Array.from(ed.children).some(c => !(c.dataset && c.dataset.hd) && !c.classList.contains("pgap"))) { const p = document.createElement("p"); p.innerHTML = "<br>"; ed.appendChild(p); }   // always keep a paragraph to write in
+  }
+  function atTextStart() {                           // the cursor is at the very start of the first paragraph, right below the locked heading
+    const s = getSelection(); if (!s.rangeCount || !s.isCollapsed || !ed.contains(s.anchorNode)) return false;
+    let n = s.anchorNode; while (n && n.parentNode !== ed) n = n.parentNode; if (!n) return false;
+    let prev = n.previousElementSibling; while (prev && prev.classList.contains("pgap")) prev = prev.previousElementSibling;
+    if (!prev || !(prev.dataset && prev.dataset.hd)) return false;
+    const r = s.getRangeAt(0), pre = document.createRange(); pre.selectNodeContents(n); pre.setEnd(r.startContainer, r.startOffset);
+    return pre.toString() === "";
+  }
+  E.relayout = () => { if (doc) scheduleLayout(false); };                 // e.g. the title changed: the heading is rebuilt, nothing else
+  const bodyText = () => { let s = ""; ed.childNodes.forEach(c => { if (!(c.nodeType === 1 && c.dataset && c.dataset.hd)) s += c.textContent; }); return s; };     // the text you wrote, without the heading
+
   /* ---------- layout: decide where pages break ---------- */
   function layout() {
     if (!doc || composing) return;
@@ -86,6 +107,7 @@
     if (!ed.getClientRects().length) return;           // the Write tab is hidden: nothing to measure (it re-runs when shown again)
     fixSizeSpans();
     stripGaps();
+    syncHeader();
     snapshot();
     const g = geom(), C = g.C, G = g.G;
     const base = ed.getBoundingClientRect().top + g.mt * zoom;
@@ -200,12 +222,12 @@
     else { hist.length = hidx + 1; hist.push(entry); hidx++; lastPush = now; if (hist.length > 300) { hist.shift(); hidx--; } }
     breakNext = false;
     if (pendingAuto) { pendingAuto.entry = hist[hidx]; lastAuto = pendingAuto; pendingAuto = null; }
-    doc.html = PX.img.stripUrls(html); doc.modified = Date.now(); doc.words = U.words(ed.textContent);
+    doc.html = PX.img.stripUrls(PX.stripHeader(html)); doc.modified = Date.now(); doc.words = U.words(bodyText());
     PX.saveSoon();
   }
   function restore(h) {
     ed.innerHTML = h.html; ed.focus(); setSel(h.sel); breakNext = true;
-    layout(); doc.html = PX.img.stripUrls(ed.innerHTML); doc.modified = Date.now(); doc.words = U.words(ed.textContent); PX.saveSoon();
+    layout(); doc.html = PX.img.stripUrls(PX.stripHeader(ed.innerHTML)); doc.modified = Date.now(); doc.words = U.words(bodyText()); PX.saveSoon();
     caretIntoView();
   }
   E.undo = function () {
@@ -257,7 +279,7 @@
 
   /* ---------- statistics, current page ---------- */
   E.stats = function () {
-    const text = ed.textContent, sel = getSelection();
+    const text = bodyText(), sel = getSelection();
     let selWords = 0; if (sel.rangeCount && !sel.isCollapsed && ed.contains(sel.anchorNode)) selWords = U.words(sel.toString());
     return { words: U.words(text), chars: text.length, pages, selWords, page: currentPage() };
   };
@@ -319,7 +341,7 @@
   /* ---------- loading a document into the page ---------- */
   E.load = function (d) {
     doc = d; applyStyle();
-    ed.innerHTML = d.html || "<p><br></p>";
+    ed.innerHTML = PX.docHeader(d) + (d.html || "<p><br></p>");
     if (!ed.firstChild) ed.innerHTML = "<p><br></p>";
     PX.img.hydrate(ed); if (E.onLoad) E.onLoad();
     sheetKey = ""; pages = 1; hist = [{ html: ed.innerHTML, sel: null }]; hidx = 0; breakNext = true;
@@ -334,7 +356,7 @@
     const parts = []; d.body.querySelectorAll("p,h1,h2,h3,blockquote,li").forEach(el => { if (el.tagName === "BLOCKQUOTE" && el.querySelector("p")) return; parts.push(el.textContent); });
     return parts.join("\n\n").trim();
   };
-  E.cleanHtml = () => PX.img.stripUrls(ed.innerHTML.replace(/<(span|div)[^>]*class="pgap[^"]*"[^>]*><\/\1>/g, ""));
+  E.cleanHtml = () => PX.img.stripUrls(PX.stripHeader(ed.innerHTML).replace(/<(span|div)[^>]*class="pgap[^"]*"[^>]*><\/\1>/g, ""));
 
   /* ---------- pictures: <figure class="fig plate|wide|small" data-img="id"><img data-img="id" width height alt><figcaption>…</figcaption></figure> ----------
      plate = a page of its own, wide = the width of the text, small = centred, about half the width. The block is not editable text: it is changed with the bar that appears when it is clicked. */
@@ -485,6 +507,7 @@
       const k = e.key.toLowerCase();
       if ((e.ctrlKey || e.metaKey) && k === "z" && !e.shiftKey) { e.preventDefault(); E.undo(); }
       else if ((e.ctrlKey || e.metaKey) && (k === "y" || (k === "z" && e.shiftKey))) { e.preventDefault(); E.redo(); }
+      else if (k === "backspace" && !e.ctrlKey && !e.metaKey && atTextStart()) e.preventDefault();       // do not let Backspace eat the locked chapter heading above
       else if (k === "enter") breakNext = true;
       else if (k === "tab" && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {   // Tab = a paragraph-sized gap (two em-spaces), not "jump to the next button"
         e.preventDefault(); document.execCommand("insertText", false, "  "); scheduleLayout(true);

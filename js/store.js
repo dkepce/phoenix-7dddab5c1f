@@ -88,6 +88,21 @@
     if (parent) { d.order = PX.chapters(parent.id).length; d.type = "chapter"; d.parent = parent.id; }
     return d;
   };
+  /* The heading a chapter ("Chapter 3" + its title) or a journal entry (its date + title) starts with. Write shows it locked at the top of the page and
+     the Read tab puts the very same blocks in front of the text, so both lay out identically. It is never saved inside doc.html. */
+  PX.docHeader = function (d) {
+    const e = U.esc, ro = ' data-hd="1" contenteditable="false"';
+    if (d.type === "chapter" && PX.D.docs[d.parent]) {
+      const n = PX.chapters(d.parent).findIndex(c => c.id === d.id) + 1;
+      return '<h2 class="chn"' + ro + ">Chapter " + n + "</h2>" + (d.title ? '<h1 class="cht"' + ro + ">" + e(d.title) + "</h1>" : "");
+    }
+    if (d.type === "journal") {
+      const t = new Date((d.meta.date || U.today()) + "T12:00:00"), s = isNaN(t) ? "" : t.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+      return '<h2 class="jd"' + ro + ">" + e(s) + "</h2>" + (d.title ? '<h3 class="jt"' + ro + ">" + e(d.title) + "</h3>" : "");
+    }
+    return "";
+  };
+  PX.stripHeader = html => html.replace(/<(h[1-6])[^>]*data-hd="1"[^>]*>.*?<\/\1>/g, "");
   PX.docList = () => Object.values(PX.D.docs).sort((a, b) => b.modified - a.modified);
   PX.chapters = bookId => Object.values(PX.D.docs).filter(d => d.type === "chapter" && d.parent === bookId).sort((a, b) => a.order - b.order || a.created - b.created);
   PX.topList = () => PX.docList().filter(d => d.type !== "chapter");           // everything except chapters (those hang under their book)

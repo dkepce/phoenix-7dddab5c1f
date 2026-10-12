@@ -382,10 +382,11 @@ dialog menu { display: flex; justify-content: flex-end; gap: 8px; padding: 0; ma
 .rpage { position: relative; overflow: hidden; background: var(--sheet); color: var(--ink); flex: none; }
 .rpage > .doc-body { position: absolute; left: 0; top: 0; user-select: none; }
 .rpage .pnum { position: absolute; }
-.rpage .chn { text-align: center; text-transform: uppercase; letter-spacing: .22em; font-size: .85em; font-weight: 600; padding-top: 3.5em; opacity: .6; }
-.rpage .cht { text-align: center; font-size: 1.7em; padding: .15em 0 1.3em; }
-.rpage .jd { font-size: 1.3em; padding: .2em 0 .1em; border-bottom: 1px solid color-mix(in srgb, var(--ink) 25%, transparent); margin-bottom: .6em; }
-.rpage .jt { font-style: italic; font-weight: 400; padding: 0 0 .5em; }
+.doc-body .chn { text-align: center; text-transform: uppercase; letter-spacing: .22em; font-size: .85em; font-weight: 600; padding-top: 3.5em; opacity: .6; }
+.doc-body .cht { text-align: center; font-size: 1.7em; padding: .15em 0 1.3em; }
+.doc-body .jd { font-size: 1.3em; padding: .2em 0 .1em; border-bottom: 1px solid color-mix(in srgb, var(--ink) 25%, transparent); margin-bottom: .6em; }
+.doc-body .jt { font-style: italic; font-weight: 400; padding: 0 0 .5em; }
+#editor [data-hd] { user-select: none; cursor: default; }
 .rpage .rp-in { font: var(--ffs) var(--ffont); color: var(--ink); position: absolute; inset: 0; box-sizing: border-box; display: flex; flex-direction: column; }
 .front-title .rp-in { align-items: center; justify-content: center; text-align: center; gap: 1.2em; }
 .ft-t { font-size: 2.3em; font-weight: 700; line-height: 1.15; } .ft-o { font-size: 1.6em; opacity: .55; } .ft-a { font-size: 1.15em; letter-spacing: .14em; text-transform: uppercase; opacity: .8; }

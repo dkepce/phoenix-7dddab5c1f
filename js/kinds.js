@@ -60,7 +60,7 @@
       const rec = PX.D.marks[d.id] = PX.D.marks[d.id] || { style: "strip", doc: "", i: 0 }; rec.style = e.target.value; PX.saveSoon(); return;
     }
     const k = e.target.dataset.m; if (!d || !k) return;
-    d.meta[k] = e.target.value; d.modified = Date.now(); PX.saveSoon(); PX.refreshSide();
+    d.meta[k] = e.target.value; d.modified = Date.now(); PX.saveSoon(); PX.refreshSide(); if (d.type === "journal") PX.ed.relayout();
     if (d.type === "book") paintCoverPreview(d);
   });
   $("metaRow").addEventListener("click", e => {
