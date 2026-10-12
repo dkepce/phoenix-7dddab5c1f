@@ -24,7 +24,7 @@
     const g = geom(), t = doc.text, pa = PX.PAPER[doc.page.paper] || PX.PAPER.paper;
     paper.style.width = g.pw + "px";
     paper.style.setProperty("--sheet", pa[0]); paper.style.setProperty("--ink", pa[1]);
-    ed.style.width = g.pw + "px";
+    ed.style.width = g.pw + "px"; ed.style.setProperty("--C", g.C + "px");        // --C = height of the text area: full-page pictures are exactly that tall
     ed.style.padding = g.mt + "px " + g.mr + "px " + g.mb + "px " + g.ml + "px";
     ed.style.setProperty("--font", '"' + t.font + '"');
     ed.style.setProperty("--fs", U.pt2px(t.size) + "px");
@@ -96,6 +96,10 @@
       const cs = getComputedStyle(b), r = b.getBoundingClientRect();
       const top = Y(r.top), bottom = Y(r.bottom) - (parseFloat(cs.paddingBottom) || 0) - (parseFloat(cs.borderBottomWidth) || 0);
       if (bottom + S <= pageEnd(page) + 0.5) continue;
+      if (b.classList.contains("fig")) {                                    // a picture is never cut: if it does not fit, the whole block goes to the next page
+        const h = pageStart(page + 1) - (top + S); if (h > 0) { ins.push({ before: b, h }); S += h; page++; }
+        continue;
+      }
       const ci = charIndex(b), first = validFrom(ci, 0, ci.total - 1);
       if (!first) {                                                         // nothing to split: move the whole block
         const h = pageStart(page + 1) - (top + S);
@@ -196,12 +200,12 @@
     else { hist.length = hidx + 1; hist.push(entry); hidx++; lastPush = now; if (hist.length > 300) { hist.shift(); hidx--; } }
     breakNext = false;
     if (pendingAuto) { pendingAuto.entry = hist[hidx]; lastAuto = pendingAuto; pendingAuto = null; }
-    doc.html = html; doc.modified = Date.now(); doc.words = U.words(ed.textContent);
+    doc.html = PX.img.stripUrls(html); doc.modified = Date.now(); doc.words = U.words(ed.textContent);
     PX.saveSoon();
   }
   function restore(h) {
     ed.innerHTML = h.html; ed.focus(); setSel(h.sel); breakNext = true;
-    layout(); doc.html = ed.innerHTML; doc.modified = Date.now(); doc.words = U.words(ed.textContent); PX.saveSoon();
+    layout(); doc.html = PX.img.stripUrls(ed.innerHTML); doc.modified = Date.now(); doc.words = U.words(ed.textContent); PX.saveSoon();
     caretIntoView();
   }
   E.undo = function () {
@@ -282,7 +286,12 @@
     src.childNodes.forEach(c => {
       if (c.nodeType === 3) { out.appendChild(document.createTextNode(c.nodeValue.replace(/ /g, " "))); return; }
       if (c.nodeType !== 1) return;
-      const tag = c.tagName; if (c.classList.contains("pgap") || /^(SCRIPT|STYLE|META|LINK|IMG|IFRAME|OBJECT|HEAD|TITLE|SVG|CANVAS)$/.test(tag)) return;
+      const tag = c.tagName;
+      if (tag === "FIGURE" && c.dataset.img && PX.D.images[c.dataset.img]) {                       // a picture copied from Phoenix itself
+        const cap = (c.querySelector("figcaption") || {}).textContent || "", sz = /plate/.test(c.className) ? "plate" : /small/.test(c.className) ? "small" : "wide";
+        out.appendChild(E.makeFigure(PX.D.images[c.dataset.img], sz, cap)); return;
+      }
+      if (c.classList.contains("pgap") || /^(SCRIPT|STYLE|META|LINK|IMG|IFRAME|OBJECT|HEAD|TITLE|SVG|CANVAS)$/.test(tag)) return;
       let tgt = out;
       if (KEEP[tag]) { const el = document.createElement(KEEP[tag]); out.appendChild(el); if (tag !== "BR") tgt = el; else return; }
       else if (tag === "SPAN") {
@@ -296,7 +305,10 @@
     });
   }
   function onPaste(e) {
-    const cd = e.clipboardData; if (!cd) return; e.preventDefault();
+    const cd = e.clipboardData; if (!cd) return;
+    const pics = Array.from(cd.files || []).filter(f => /^image\//.test(f.type));
+    if (pics.length && !cd.getData("text/plain")) { e.preventDefault(); if (PX.images) PX.images.addFiles(pics); return; }       // a copied picture (screenshot, from a browser)
+    e.preventDefault();
     const html = cd.getData("text/html"), text = cd.getData("text/plain");
     let out;
     if (html) { const d = new DOMParser().parseFromString(html, "text/html"), frag = document.createElement("div"); sanitize(d.body, frag); out = frag.innerHTML; }
@@ -309,6 +321,7 @@
     doc = d; applyStyle();
     ed.innerHTML = d.html || "<p><br></p>";
     if (!ed.firstChild) ed.innerHTML = "<p><br></p>";
+    PX.img.hydrate(ed); if (E.onLoad) E.onLoad();
     sheetKey = ""; pages = 1; hist = [{ html: ed.innerHTML, sel: null }]; hidx = 0; breakNext = true;
     layout(); stage.scrollTop = 0;
   };
@@ -321,7 +334,29 @@
     const parts = []; d.body.querySelectorAll("p,h1,h2,h3,blockquote,li").forEach(el => { if (el.tagName === "BLOCKQUOTE" && el.querySelector("p")) return; parts.push(el.textContent); });
     return parts.join("\n\n").trim();
   };
-  E.cleanHtml = () => ed.innerHTML.replace(/<(span|div)[^>]*class="pgap[^"]*"[^>]*><\/\1>/g, "");
+  E.cleanHtml = () => PX.img.stripUrls(ed.innerHTML.replace(/<(span|div)[^>]*class="pgap[^"]*"[^>]*><\/\1>/g, ""));
+
+  /* ---------- pictures: <figure class="fig plate|wide|small" data-img="id"><img data-img="id" width height alt><figcaption>…</figcaption></figure> ----------
+     plate = a page of its own, wide = the width of the text, small = centred, about half the width. The block is not editable text: it is changed with the bar that appears when it is clicked. */
+  E.makeFigure = function (rec, size, caption) {
+    const f = document.createElement("figure"); f.className = "fig " + size; f.contentEditable = "false"; f.dataset.img = rec.id;
+    const i = document.createElement("img"); i.dataset.img = rec.id; i.setAttribute("width", rec.w || 800); i.setAttribute("height", rec.h || 600); i.alt = caption || rec.name || "";
+    f.appendChild(i); if (caption) { const c = document.createElement("figcaption"); c.textContent = caption; f.appendChild(c); }
+    PX.img.hydrate(f); return f;
+  };
+  E.insertFigure = function (rec, size) {            // after the paragraph the cursor is in (an empty paragraph is replaced)
+    if (!doc) return null; focusEd(); stripGaps();
+    let blk = null; const s = getSelection();
+    if (s.rangeCount && ed.contains(s.anchorNode)) { let n = s.anchorNode; while (n && n.parentNode !== ed) n = n.parentNode; blk = n; }
+    if (!blk) blk = ed.lastElementChild;
+    const fig = E.makeFigure(rec, size, ""), empty = blk && blk.tagName === "P" && !blk.textContent.trim() && !blk.querySelector("img");
+    if (blk && !empty) blk.after(fig); else if (blk) blk.replaceWith(fig); else ed.appendChild(fig);
+    let nx = fig.nextElementSibling; if (!nx || nx.classList.contains("fig")) { nx = document.createElement("p"); nx.innerHTML = "<br>"; fig.after(nx); }
+    try { const r = document.createRange(); r.selectNodeContents(nx); r.collapse(true); s.removeAllRanges(); s.addRange(r); } catch (e) { }       // cursor goes to the text after the picture
+    E.touch(); return fig;
+  };
+  E.touch = function () { breakNext = true; scheduleLayout(true); };
+  E.hydrate = () => { if (doc) PX.img.hydrate(ed); };
 
   /* ---------- comments ----------
      A comment remembers the passage it is about as quoted text (plus a little text before and after it). We find that passage
@@ -462,7 +497,11 @@
       e.preventDefault(); E.onContext(e.clientX, e.clientY, info);
     });
     ed.addEventListener("paste", onPaste);
-    ed.addEventListener("drop", e => { e.preventDefault(); });          // no drag & drop of outside content for now
+    ed.addEventListener("dragover", e => { if (e.dataTransfer && Array.from(e.dataTransfer.types || []).includes("Files")) e.preventDefault(); });
+    ed.addEventListener("drop", e => {                                  // only picture files are accepted; the rest of outside content is not
+      e.preventDefault(); const pics = Array.from((e.dataTransfer && e.dataTransfer.files) || []).filter(f => /^image\//.test(f.type));
+      if (pics.length && PX.images) PX.images.addFiles(pics);
+    });
     ed.addEventListener("keyup", caretIntoView);
     document.addEventListener("selectionchange", () => {
       const s = getSelection();

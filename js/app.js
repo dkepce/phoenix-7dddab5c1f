@@ -16,7 +16,8 @@
     ul: '<path d="M8 5h9M8 10h9M8 15h9"/><circle cx="4" cy="5" r=".8"/><circle cx="4" cy="10" r=".8"/><circle cx="4" cy="15" r=".8"/>',
     ol: '<path d="M9 5h8M9 10h8M9 15h8"/><path d="M3.5 4l1-.6V7M3 11.5c0-1.4 2-1.4 2 0s-2 1.6-2 2.6h2"/>',
     clear: '<path d="M4 16l9-12M10 16h6M6 4h9"/>', comment: '<path d="M3 4h14v9H9l-4 3.5V13H3z"/><path d="M6.5 7.5h7M6.5 10h4"/>', look: '<circle cx="8.5" cy="8.5" r="5"/><path d="M12.3 12.3L17 17"/>', hl: '<path d="M5 14l6.5-6.5 3 3L8 17H5z"/><path d="M11.5 7.5l2-2 3 3-2 2M3 18.5h14"/>',
-    print: '<path d="M5 8V3h10v5M5 14H3V8h14v6h-2"/><rect x="5" y="12" width="10" height="5"/>'
+    print: '<path d="M5 8V3h10v5M5 14H3V8h14v6h-2"/><rect x="5" y="12" width="10" height="5"/>',
+    image: '<rect x="3" y="4" width="14" height="12" rx="1.5"/><circle cx="7.5" cy="8.5" r="1.4"/><path d="M3.5 14.5 8 10l3 3 2.5-2.5 3 3.5"/>'
   };
   const ic = n => '<svg viewBox="0 0 20 20">' + I[n] + "</svg>";
   const TB = [
@@ -30,6 +31,7 @@
     ["comment", ic("comment"), "Comment on the selected text (also: right-click the selection)", () => PX.commentSelection()],
     ["look", ic("look"), "Look up the selected word (also: right-click it)", () => PX.lookupSelection()],
     ["hl", ic("hl"), "Show / hide the comment colours on the page", () => PX.toggleHL()],
+    ["image", ic("image"), "Insert a picture (you can also paste or drag a picture file into the text)", () => PX.images.pick()],
     ["clear", ic("clear"), "Clear formatting", () => E.clearFormat()], ["print", ic("print"), "Print / save as PDF", () => printDoc()]
   ];
   const STYLES = [["P", "Normal text"], ["H1", "Title"], ["H2", "Heading"], ["H3", "Subheading"], ["BLOCKQUOTE", "Quote"]];
@@ -237,7 +239,8 @@
     const pos = { left: "left", center: "center", right: "right" }[p.numbers];
     const css = "@page{size:" + w + "mm " + h + "mm;margin:" + p.mt + "mm " + p.mr + "mm " + p.mb + "mm " + p.ml + "mm;" +
       (pos ? "@bottom-" + pos + "{content:counter(page);font:10pt Georgia,serif;color:#555}" : "") + "}";
-    $("print").innerHTML = "<style>" + css + '</style><div class="doc-body' + (t.indent ? " indent" : "") + '" style="--font:\'' + t.font + "';--fs:" + t.size + "pt;--lh:" + t.lh + ";--ps:" + t.ps + 'em" lang="' + d.lang + '">' + d.html + "</div>";
+    $("print").innerHTML = "<style>" + css + '</style><div class="doc-body' + (t.indent ? " indent" : "") + '" style="--font:\'' + t.font + "';--fs:" + t.size + "pt;--lh:" + t.lh + ";--ps:" + t.ps + "em;--C:" + (h - p.mt - p.mb) + 'mm" lang="' + d.lang + '">' + d.html + "</div>";
+    PX.img.hydrate($("print"));
     setTimeout(() => { window.print(); }, 50);
   }
 

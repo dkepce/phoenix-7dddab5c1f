@@ -56,6 +56,9 @@
   PX.fixData = function () {
     const D = PX.D;
     D.docs = D.docs || {}; D.vocab = D.vocab || []; D.world = D.world || []; D.grammar = D.grammar || [];
+    D.images = D.images || {};        // pictures used in documents: id -> { id, name, type, size, w, h, loc: "dir" | "idb", fn } (the files themselves are in the PhoenixFiles folder, see PX.img)
+    D.marks = D.marks || {};          // bookmarks, one per book (key = book id) and one for the journal: { style: "strip" | "corner", doc: id of the chapter/entry, i: page in it }
+    Object.keys(D.marks).forEach(k => { const m = D.marks[k]; if (k !== "journal" && !D.docs[k]) delete D.marks[k]; else if (m.doc && !D.docs[m.doc]) m.doc = ""; });
     D.grammar.forEach(r => { r.examples = r.examples || []; r.rule = r.rule || ""; r.title = r.title || ""; });
     D.world.forEach(c => { c.f = c.f || {}; c.extra = c.extra || []; c.notes = c.notes || ""; c.name = c.name || ""; });
     D.world = D.world.filter(c => c.name.trim() || Object.keys(c.f).length || c.notes.trim() || c.extra.length);       // forgotten empty stubs
@@ -123,7 +126,7 @@
 
   /* ---------- Phoenix.phx in a folder the user picks (File System Access API) ---------- */
   const FS_OK = !!window.showDirectoryPicker;
-  const F = (PX.file = { ok: FS_OK, dir: null, state: FS_OK ? "none" : "local", name: "", timer: null, lastWrite: 0, msg: "" });
+  const F = (PX.file = { ok: FS_OK, dir: null, filesDir: null, state: FS_OK ? "none" : "local", name: "", timer: null, lastWrite: 0, msg: "" });
   PX.onFileState = () => { };
   function setState(s) { F.state = s; PX.onFileState(); }
   async function perm(h, ask) {
@@ -157,6 +160,7 @@
     lastSer = JSON.stringify({ S: PX.S, D: PX.D }); persistLocal();
     if (!PX.D.docs[PX.ui.cur]) PX.ui.cur = (PX.docList()[0] || {}).id || "";
     PX.render();
+    if (PX.img) PX.img.warm();
   };
   async function syncFromFile() {
     try {
@@ -164,10 +168,63 @@
       if (fsaved > savedAt + 1000) PX.applyPayload(j);
       else if (savedAt > fsaved + 1000) await writeFile(false);
       setState("ok");
+      await openFilesDir(); await migrateImages(); PX.img.warm();
     } catch (e) {
-      if (e.name === "NotFoundError") await writeFile(false); else setState("error");
+      if (e.name === "NotFoundError") { await writeFile(false); await openFilesDir(); await migrateImages(); } else setState("error");
     }
   }
+
+  /* ---------- pictures: files in a "PhoenixFiles" folder next to Phoenix.phx (same idea as LabGorilla's "LabGorilla files") ----------
+     A document only holds <img data-img="id">; the registry D.images says where the file is. Without a linked folder the file waits in the
+     browser (IndexedDB) and moves into the folder as soon as one is linked. urlCache gives the editor and the Read tab synchronous access. */
+  const urlCache = {};
+  async function openFilesDir() { try { F.filesDir = await F.dir.getDirectoryHandle("PhoenixFiles", { create: true }); } catch (e) { F.filesDir = null; } }
+  async function writeImage(rec, blob) {
+    const fn = rec.id + "_" + U.safeName(rec.name);
+    const fh = await F.filesDir.getFileHandle(fn, { create: true });
+    const w = await fh.createWritable(); await w.write(blob); await w.close();
+    rec.loc = "dir"; rec.fn = fn;
+  }
+  async function migrateImages() {
+    if (!F.filesDir) return;
+    let moved = false;
+    for (const rec of Object.values(PX.D.images)) {
+      if (rec.loc !== "idb") continue;
+      const blob = await idbGet("blob:" + rec.id); if (!blob) continue;
+      try { await writeImage(rec, blob); await idbDel("blob:" + rec.id); moved = true; } catch (e) { }
+    }
+    if (moved) PX.save();
+  }
+  async function imageBlob(rec) {
+    try {
+      if (rec.loc === "dir") { if (!F.filesDir) return null; return await (await F.filesDir.getFileHandle(rec.fn)).getFile(); }
+      return (await idbGet("blob:" + rec.id)) || null;
+    } catch (e) { return null; }
+  }
+  PX.img = {
+    url: id => urlCache[id] || "",
+    onWarm: null, ver: 0,                            // ver changes whenever a new picture address appears (the Read tab uses it to rebuild its cached pages)
+    async warm() {                                   // make an object URL for every picture so pages can show them without waiting
+      let any = false;
+      for (const rec of Object.values(PX.D.images)) {
+        if (urlCache[rec.id]) continue;
+        const b = await imageBlob(rec); if (b) { urlCache[rec.id] = URL.createObjectURL(b); any = true; }
+      }
+      if (any) { PX.img.ver++; if (PX.img.onWarm) PX.img.onWarm(); }
+    },
+    async add(blob, name, w, h) {
+      const rec = { id: U.uid(), name, type: blob.type || "", size: blob.size, w, h, loc: "idb", at: Date.now() };
+      let ok = false;
+      if (F.filesDir && (await perm(F.dir, false))) { try { await writeImage(rec, blob); ok = true; } catch (e) { } }
+      if (!ok && !(await idbSet("blob:" + rec.id, blob))) { PX.toast("Could not store " + name); return null; }
+      PX.D.images[rec.id] = rec; urlCache[rec.id] = URL.createObjectURL(blob); PX.img.ver++; PX.save();
+      return rec;
+    },
+    hydrate(root) {                                  // give every <img data-img> its picture (the saved HTML never holds the address)
+      root.querySelectorAll("img[data-img]").forEach(i => { const u = urlCache[i.dataset.img]; if (u && i.getAttribute("src") !== u) i.setAttribute("src", u); });
+    },
+    stripUrls: html => html.replace(/ src="blob:[^"]*"/g, "")
+  };
   PX.chooseFolder = async function () {
     try {
       const dir = await showDirectoryPicker({ id: "phoenix", mode: "readwrite" });
@@ -177,7 +234,8 @@
       F.dir = dir; F.name = dir.name; await idbSet("dir", dir);
       if (existing) PX.applyPayload(existing); else await writeFile(true);
       setState("ok");
-      PX.toast("Done: Phoenix now saves itself into " + dir.name + "/Phoenix.phx");
+      await openFilesDir(); await migrateImages(); PX.img.warm();
+      PX.toast("Done: Phoenix now saves itself into " + dir.name + "/Phoenix.phx" + (F.filesDir ? " (pictures go into the PhoenixFiles folder next to it)" : ""));
     } catch (e) { if (e.name !== "AbortError") PX.toast("That did not work: " + e.message); }
   };
   PX.reconnect = async function () {
@@ -206,6 +264,7 @@
     if (window.launchQueue) launchQueue.setConsumer(p => { if (p.files && p.files.length) PX.openLaunched(p.files[0]); });
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => { });
     PX.onFileState();
+    PX.img.warm();                                   // pictures kept in the browser (no folder linked yet)
     if (!FS_OK) return;
     const dir = await idbGet("dir"); if (!dir) return;
     F.dir = dir; F.name = dir.name;
@@ -223,7 +282,7 @@
     const blob = new Blob([JSON.stringify(PX.payload())], { type: "application/x-phoenix" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "Phoenix-" + U.today() + ".phx";
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-    PX.toast("Backup saved: Phoenix-" + U.today() + ".phx (see your Downloads folder).");
+    PX.toast("Backup saved: Phoenix-" + U.today() + ".phx (see your Downloads folder)." + (Object.keys(PX.D.images).length ? " Pictures are not inside it: they live in the PhoenixFiles folder, copy that folder too." : ""));
   };
   PX.restoreFrom = async function (file) {
     try {

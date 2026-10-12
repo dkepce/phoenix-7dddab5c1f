@@ -100,6 +100,25 @@ select option { background: var(--bg2); }
 .pgap { display: block; width: 100%; padding: 0; margin: 0; text-indent: 0; pointer-events: none; user-select: none; }
 .pgap.in { display: inline-block; vertical-align: top; font-size: 0; line-height: 0; }
 
+/* pictures: plate = a page of its own, wide = width of the text, small = centred. --C is the height of the text area. */
+.doc-body figure.fig { margin: 0; padding: 0 0 var(--ps, .6em); text-align: center; text-indent: 0; position: relative; }
+.doc-body figure.fig img { display: block; margin: 0 auto; max-width: 100%; }
+.doc-body figure.fig img:not([src]) { background: repeating-linear-gradient(45deg, rgba(128, 128, 128, .14) 0 8px, transparent 8px 16px); outline: 1px dashed rgba(128, 128, 128, .45); }
+.doc-body figure.wide img { width: 100%; height: auto; max-height: calc(var(--C, 640px) - 3em); object-fit: contain; }
+.doc-body figure.small img { width: 46%; height: auto; max-height: calc(var(--C, 640px) * .6); object-fit: contain; }
+.doc-body figure.plate { height: var(--C, 640px); padding: 0; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.doc-body figure.plate img { flex: 1 1 0; min-height: 0; width: 100%; height: 100%; max-width: none; object-fit: contain; }
+.doc-body figcaption { flex: none; font-size: .85em; font-style: italic; opacity: .78; padding-top: .45em; text-indent: 0; line-height: 1.3; }
+#editor figure.fig { cursor: pointer; }
+#editor figure.fig img { user-select: none; -webkit-user-drag: none; }
+#imgSel { position: fixed; z-index: 40; border: 2px solid var(--accent); border-radius: 2px; pointer-events: none; box-shadow: 0 0 0 1px rgba(0, 0, 0, .35); }
+#imgBar { position: fixed; z-index: 45; display: flex; align-items: center; gap: 6px; padding: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 10px 30px rgba(0, 0, 0, .55); }
+#imgBar .ib-row { display: flex; gap: 2px; }
+#imgBar button { padding: 4px 10px; font-size: 12px; background: transparent; }
+#imgBar button.on { background: var(--accent); border-color: var(--accent); color: #1b1208; font-weight: 600; }
+#imgBar button.danger { color: #ff9a9a; }
+#imgBar input { width: 170px; font-size: 12px; padding: 4px 8px; }
+
 /* ---------- comments on the page ---------- */
 ::highlight(pxc-note) { background-color: rgba(240, 122, 30, .22); }
 ::highlight(pxc-good) { background-color: rgba(247, 179, 43, .42); }
@@ -398,6 +417,36 @@ dialog menu { display: flex; justify-content: flex-end; gap: 8px; padding: 0; ma
 .rb-face.pr::after { background: linear-gradient(90deg, rgba(0,0,0,.28), rgba(0,0,0,.06) 7%, transparent 14%); }
 .rb-face.pl::after { background: linear-gradient(270deg, rgba(0,0,0,.28), rgba(0,0,0,.06) 7%, transparent 14%); }
 .rb-face .rpage, .rb-face .rboard { position: absolute; inset: 0; }
+/* bookmark on the open book: a long strip with the title, or a folded corner */
+.bm { position: absolute; z-index: 2500; pointer-events: none; }
+.bm.away { opacity: 0; transition: opacity .28s; }
+.bm-strip { filter: drop-shadow(3px 6px 6px rgba(0, 0, 0, .42)); }
+.bm-card { position: absolute; inset: 0; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 7% 0 11%;
+  background: linear-gradient(90deg, #f4ecd3, #e9dfbd 55%, #f0e6c8); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 96.5%, 0 100%); }
+.bm-card::before { content: ""; position: absolute; inset: 3px; border: 1px solid color-mix(in srgb, var(--cover) 55%, transparent); border-bottom: none; clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 95%, 0 100%); }
+.bm-o { width: 46%; height: 2px; background: var(--cover); opacity: .6; flex: none; }
+.bm-t { writing-mode: vertical-rl; transform: rotate(180deg); font: 700 1em Georgia, serif; letter-spacing: .2em; text-transform: uppercase; color: var(--cover); max-height: 64%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.bm-d { color: var(--cover); opacity: .6; font-size: 1.1em; flex: none; margin-bottom: 6%; }
+.bm-strip.enter { animation: bmIn 1s cubic-bezier(.2, .8, .25, 1) both; }
+.bm-strip.leave { animation: bmOut .6s cubic-bezier(.5, 0, .9, .4) both; }
+@keyframes bmIn { 0% { transform: translateY(-130%) rotate(-5deg); opacity: 0; } 12% { opacity: 1; } 68% { transform: translateY(2.2%) rotate(.9deg); } 84% { transform: translateY(-.8%) rotate(-.3deg); } 100% { transform: none; opacity: 1; } }
+@keyframes bmOut { to { transform: translateY(-135%) rotate(4deg); opacity: 0; } }
+.bm-corner { perspective: 900px; }
+.bm-corner.l { transform: scaleX(-1); }
+.bc-under, .bc-front, .bc-back, .bc-sh { position: absolute; inset: 0; }
+.bc-under { clip-path: polygon(100% 0, 100% 100%, 0 100%); background: linear-gradient(135deg, #b8ac8a, #8f8466); }
+.bc-sh { clip-path: polygon(0 0, 100% 0, 0 100%); background: linear-gradient(to bottom right, transparent 52%, rgba(0, 0, 0, .3)); transform: translate(-4%, -4%); opacity: 0; transition: opacity .5s ease .35s; }
+.bm-corner.on .bc-sh { opacity: 1; }
+.bc-flap { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .95s cubic-bezier(.45, .05, .2, 1); }
+.bm-corner.on .bc-flap { transform: rotate3d(1, -1, 0, 180deg); }
+.bm-corner.still .bc-flap, .bm-corner.still .bc-sh { transition: none; }
+.bc-front { clip-path: polygon(100% 0, 100% 100%, 0 100%); background: var(--sheet); backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.bc-back { clip-path: polygon(0 0, 100% 0, 0 100%); background: linear-gradient(to bottom right, #fbf4de 50%, #d7cdae); backface-visibility: hidden; -webkit-backface-visibility: hidden; transform: rotate3d(1, -1, 0, 180deg); }
+.bm-corner.leave .bc-flap { transition-duration: .7s; }
+.rd-book.has-mark .rb-ribbon { opacity: 0; }
+#rdHud button.bmb { padding: 4px 10px; display: inline-flex; align-items: center; } #rdHud button.bmb svg { width: 18px; height: 18px; }
+#rdHud button.bmb.on { background: var(--accent); border-color: var(--accent); color: #1b1208; }
+#rdHud button.sm { font-size: 12px; padding: 5px 12px; }
 .rb-ribbon { position: absolute; left: calc(50% - 6px); bottom: -34px; width: 12px; height: 70px; background: linear-gradient(90deg, #7d1717, #b52a2a, #7d1717); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 86%, 0 100%); z-index: 0; transition: opacity .4s; }
 .rd-book.closed .rb-ribbon { opacity: 0; }
 
@@ -449,5 +498,6 @@ dialog menu { display: flex; justify-content: flex-end; gap: 8px; padding: 0; ma
   #app, #toast, dialog { display: none !important; }
   #print { display: block; }
   #print .doc-body { --ink: #1c1c1c; color: #1c1c1c; }
+  #print figure.fig { break-inside: avoid; }
   .doc-body.indent p { text-indent: 1.27cm; }
 }

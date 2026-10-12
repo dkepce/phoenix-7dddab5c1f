@@ -43,6 +43,7 @@
       const cs = getComputedStyle(b), r = b.getBoundingClientRect();
       const top = Y(r.top), bottom = Y(r.bottom) - (parseFloat(cs.paddingBottom) || 0) - (parseFloat(cs.borderBottomWidth) || 0);
       if (bottom + S <= pageEnd(page) + 0.5) continue;
+      if (b.classList.contains("fig")) { const hh = pageStart(page + 1) - (top + S); if (hh > 0) { ins.push({ before: b, h: hh }); S += hh; page++; } continue; }     // a picture is never cut (same rule as the editor)
       const ci = charIndex(b), first = validFrom(ci, 0, ci.total - 1);
       if (!first) { const hh = pageStart(page + 1) - (top + S); if (hh > 0) { ins.push({ before: b, h: hh }); S += hh; page++; } continue; }
       let from = first.idx;
@@ -77,12 +78,13 @@
 
   const cache = new Map();
   function paginate(d, pre) {
-    const key = [d.id, d.modified, JSON.stringify(d.page), JSON.stringify(d.text), d.lang, pre || ""].join("|");
+    const key = [d.id, d.modified, JSON.stringify(d.page), JSON.stringify(d.text), d.lang, pre || "", PX.img.ver].join("|");
     if (cache.has(key)) return cache.get(key);
     const g = geom(d.page), t = d.text, el = bodyEl(d, true);
-    el.style.width = px(g.pw); el.style.padding = [g.mt, g.mr, g.mb, g.ml].map(px).join(" ");
+    el.style.width = px(g.pw); el.style.padding = [g.mt, g.mr, g.mb, g.ml].map(px).join(" "); el.style.setProperty("--C", px(g.C));
     el.innerHTML = (pre || "") + (d.html || "<p><br></p>");
     el.querySelectorAll(".pgap").forEach(n => n.remove());
+    PX.img.hydrate(el);
     host.appendChild(el);
     const pages = place(el, g); host.removeChild(el);
     const info = { g, pages, el, pa: PX.PAPER[d.page.paper] || PX.PAPER.paper, numbers: d.page.numbers, words: d.words || 0 };
@@ -170,10 +172,11 @@
     if (!ctl) return;
     const x = ctl.hud ? ctl.hud() : null; if (!x) { $("rdHud").innerHTML = ""; return; }
     $("rdHud").innerHTML = (x.nav ? '<button data-n="-1" title="Previous (←)"' + (x.first ? " disabled" : "") + '>‹</button>' : "") + '<span class="hl">' + x.label + "</span>" + (x.nav ? '<button data-n="1" title="Next (→)"' + (x.last ? " disabled" : "") + ">›</button>" : "") +
-      (x.edit ? '<button data-edit="' + x.edit + '" class="ed" title="Open this in Write">Edit</button>' : "") + (x.hint ? '<span class="hint">' + x.hint + "</span>" : "");
+      (x.extra || "") + (x.edit ? '<button data-edit="' + x.edit + '" class="ed" title="Open this in Write">Edit</button>' : "") + (x.hint ? '<span class="hint">' + x.hint + "</span>" : "");
   }
   $("rdHud").addEventListener("click", e => {
     const n = e.target.closest("[data-n]"); if (n && ctl && ctl.step) { ctl.step(+n.dataset.n); return; }
+    const a = e.target.closest("[data-act]"); if (a && ctl && ctl.act) { ctl.act(a.dataset.act); return; }
     const ed = e.target.closest("[data-edit]"); if (ed) { PX.setView("write"); PX.openDoc(ed.dataset.edit); }
   });
   document.addEventListener("keydown", e => {
@@ -284,9 +287,66 @@
         L.classList.toggle("turned", fwd);
         setTimeout(() => { L.style.transitionDelay = ""; settle(j); }, FLIP_MS + kk * 85 + 40);
       });
-      s = n; shift(); hud();
+      s = n; shift(); syncMark(null, true); hud();
     }
     function step(k) { goto(s + k); }
+
+    /* ----- bookmark: a long strip with the book's name, or a folded corner (style is a per-book option) ----- */
+    const mkey = M.journal ? "journal" : d.id, MARK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-6-4-6 4z"/></svg>';
+    const markRec = () => PX.D.marks[mkey], mStyle = () => (markRec() && markRec().style) || "strip";
+    const markSide = () => {                         // which page (side index) holds the bookmark, -1 if none
+      const m = markRec(); if (!m || !m.doc) return -1; const sec = M.secs.find(x => x.doc.id === m.doc);
+      return sec ? sec.side + Math.max(0, Math.min(m.i || 0, sec.info.pages - 1)) : -1;
+    };
+    const markSpread = () => { const k = markSide(); return k < 0 ? -1 : Math.ceil(k / 2); };
+    let mel = null, mtimer = 0;                      // the bookmark drawn on the open book
+    function bmEl(kind, side) {
+      const right = side % 2 === 0;
+      if (kind === "strip") {
+        const w = Math.round(g.pw * 0.11), el = h("div", "bm bm-strip"), o = '<span class="bm-o"></span>';
+        el.style.cssText = "width:" + px(w) + ";height:" + px(g.ph * 1.1) + ";top:" + px(-g.ph * 0.035) + ";left:" + px(right ? g.pw + g.pw * 0.035 : g.pw - g.pw * 0.035 - w) + ";--cover:" + M.cover + ";font-size:" + px(g.pw * 0.04);
+        el.innerHTML = '<div class="bm-card">' + o + '<span class="bm-t">' + U.esc(M.title) + "</span>" + o + '<span class="bm-d">❦</span></div>';
+        return el;
+      }
+      const sz = Math.round(g.pw * 0.21), el = h("div", "bm bm-corner " + (right ? "r" : "l"));
+      el.style.cssText = "width:" + px(sz) + ";height:" + px(sz) + ";top:" + px(g.ph - sz) + ";left:" + px(right ? 2 * g.pw - sz : 0) + ";--sheet:" + M.pa[0];
+      el.innerHTML = '<div class="bc-under"></div><div class="bc-sh"></div><div class="bc-flap"><div class="bc-front"></div><div class="bc-back"></div></div>';
+      return el;
+    }
+    function syncMark(mode, later) {                 // mode "enter"/"leave" animate; otherwise just show it when the marked spread is open
+      const sd = markSide(), here = sd >= 0 && markSpread() === s && s > 0 && s < N;
+      if (mode === "leave") {
+        if (mel) { const old = mel; mel = null; old.classList.add("leave"); old.classList.remove("on"); setTimeout(() => old.remove(), 1000); }
+        book.classList.remove("has-mark"); return;
+      }
+      if (!here) { if (mel) { const old = mel; mel = null; old.classList.add("away"); setTimeout(() => old.remove(), 320); } book.classList.remove("has-mark"); return; }
+      if (mel && mel.dataset.k === mStyle() && +mel.dataset.side === sd) return;
+      if (later && !mode) { clearTimeout(mtimer); mtimer = setTimeout(() => syncMark(), 780); return; }            // wait until the pages have turned
+      if (mel) mel.remove();
+      mel = bmEl(mStyle(), sd); mel.dataset.k = mStyle(); mel.dataset.side = sd; book.appendChild(mel); book.classList.add("has-mark");
+      if (mode === "enter") { mel.classList.add("enter"); setTimeout(() => { if (mel) mel.classList.add("on"); }, 60); } else mel.classList.add("on", "still");
+    }
+    function toggleMark() {
+      const hereNow = markSide() >= 0 && markSpread() === s && s > 0 && s < N;
+      if (hereNow) { markRec().doc = ""; PX.save(); syncMark("leave"); hud(); return; }
+      const l = s > 0 ? 2 * s - 1 : -1, r = s < N ? 2 * s : -1, ok = i => i >= 0 && M.sides[i] && M.sides[i].k === "page", sd = ok(r) ? r : ok(l) ? l : -1;
+      if (sd < 0) { PX.toast("Turn to a page of a chapter first, then place the bookmark there."); return; }
+      const x = M.sides[sd], rec = PX.D.marks[mkey] = PX.D.marks[mkey] || { style: "strip", doc: "", i: 0 };
+      rec.doc = M.secs[x.si].doc.id; rec.i = x.i; PX.save();
+      if (mel) { mel.remove(); mel = null; } syncMark("enter"); hud();
+    }
+    function swapStyle() {
+      const rec = PX.D.marks[mkey] = PX.D.marks[mkey] || { style: "strip", doc: "", i: 0 };
+      rec.style = rec.style === "corner" ? "strip" : "corner"; PX.save();
+      if (mel) { mel.remove(); mel = null; } syncMark("enter"); hud();
+      PX.toast(rec.style === "corner" ? "Bookmark style: folded corner." : "Bookmark style: strip with the book's title.");
+    }
+    function markButtons() {
+      const hereNow = markSide() >= 0 && markSpread() === s && s > 0 && s < N, elsewhere = markSide() >= 0 && !hereNow;
+      return '<button data-act="mark" class="bmb' + (hereNow ? " on" : "") + '" title="' + (hereNow ? "Remove the bookmark (B)" : "Place a bookmark on this page (B)") + '">' + MARK_ICON + "</button>" +
+        (elsewhere ? '<button data-act="tomark" class="sm" title="Go to the bookmark">↩ Bookmark</button>' : "") +
+        '<button data-act="mstyle" class="sm" title="Swap the bookmark style">' + (mStyle() === "corner" ? "Corner" : "Strip") + "</button>";
+    }
     function sideLabel(i) { const x = M.sides[i]; return x && x.k === "page" ? x.label : null; }
     function secOf(i) { const x = M.sides[i]; return x && x.k === "page" ? M.secs[x.si] : null; }
     function where() {
@@ -307,19 +367,21 @@
     });
     const startSide = R.startAt != null ? R.startAt : (M.journal ? (M.secs.find(x => x.doc.id === PX.ui.readId) || {}).side : null);
     near(0); shift();
-    const first = startSide != null ? Math.ceil(startSide / 2) : (PX.ui.readPos && PX.ui.readPos[d.id]) || 0;     // left-hand pages (odd) show up one spread later
+    const first = startSide != null ? Math.ceil(startSide / 2) : (PX.ui.readPos && PX.ui.readPos[d.id]) || Math.max(0, markSpread());     // left-hand pages (odd) show up one spread later; a new reader opens at the bookmark
     if (first) goto(Math.min(first, N), true);
+    syncMark();
     const remember = () => { PX.ui.readPos = PX.ui.readPos || {}; PX.ui.readPos[d.id] = s; PX.saveUI(); };
     return {
       el: root, fitEl: root, natural: [g.pw * 2 + 60, g.ph + 40], step,
       key(e) {
         const k = e.key;
         if (k === "ArrowRight" || k === "PageDown" || k === " ") step(1); else if (k === "ArrowLeft" || k === "PageUp") step(-1);
-        else if (k === "Home") goto(0); else if (k === "End") goto(N); else return false;
+        else if (k === "Home") goto(0); else if (k === "End") goto(N); else if (k === "b" || k === "B") toggleMark(); else return false;
         remember(); return true;
       },
-      hud() { const w = where(); remember(); return { nav: true, first: s === 0, last: s === N, label: w.label, edit: w.edit, hint: "← → turn the pages · click the cover to open" }; },
-      dispose() { }
+      act(name) { if (name === "mark") toggleMark(); else if (name === "tomark") goto(markSpread()); else if (name === "mstyle") swapStyle(); },
+      hud() { const w = where(); remember(); return { nav: true, first: s === 0, last: s === N, label: w.label, edit: w.edit, extra: markButtons(), hint: "← → turn the pages · B bookmark" }; },
+      dispose() { clearTimeout(mtimer); }
     };
   }
 
@@ -390,7 +452,7 @@
     root.innerHTML = '<div class="mail"><div class="mail-bar"><i></i><i></i><i></i><span>Inbox</span></div><div class="mail-card">' +
       '<h1 class="m-subj">' + U.esc(d.title || "(no subject)") + '</h1><div class="m-head"><span class="avatar">' + U.esc(from.trim().charAt(0).toUpperCase() || "?") + '</span><div class="m-who"><b>' + U.esc(from) + '</b><div class="m-to">to ' + U.esc(to) + '</div></div><span class="m-date">' + U.esc(when) + "</span></div>" +
       '<div class="m-rule"></div></div></div>';
-    const body = bodyEl(d); body.classList.add("m-body"); body.innerHTML = d.html || ""; body.style.setProperty("--ink", "#26303c"); root.querySelector(".mail-card").appendChild(body);
+    const body = bodyEl(d); body.classList.add("m-body"); body.innerHTML = d.html || ""; body.style.setProperty("--ink", "#26303c"); PX.img.hydrate(body); root.querySelector(".mail-card").appendChild(body);
     return { el: root, hud: () => ({ label: "Email · " + wordsOf(d).toLocaleString() + " words", edit: d.id }) };
   }
 
@@ -398,7 +460,7 @@
   function mountNote(d) {
     const root = h("div", "rd-scroll cork"), c = (PX.NOTE_COLORS[d.meta.color] || PX.NOTE_COLORS.yellow)[0];
     root.innerHTML = '<div class="sticky" style="--note:' + c + '"><span class="pin"></span>' + (d.title ? "<h3>" + U.esc(d.title) + "</h3>" : "") + "</div>";
-    const body = bodyEl(d); body.classList.add("n-body"); body.innerHTML = d.html || ""; body.style.setProperty("--ink", "#3a3320"); root.querySelector(".sticky").appendChild(body);
+    const body = bodyEl(d); body.classList.add("n-body"); body.innerHTML = d.html || ""; body.style.setProperty("--ink", "#3a3320"); PX.img.hydrate(body); root.querySelector(".sticky").appendChild(body);
     return { el: root, hud: () => ({ label: "Note · " + wordsOf(d).toLocaleString() + " words", edit: d.id }) };
   }
 })(window.PX);

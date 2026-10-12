@@ -48,11 +48,18 @@
     if (d.type === "journal") h += field("Date", "date", m.date, "", "date");
     if (d.type === "note") h += '<span class="mtxt">Colour</span><span class="sws">' + swatches(PX.NOTE_COLORS, m.color, "nc") + "</span>";
     if (d.type === "document") h += '<label class="mf">Status <select data-m="status">' + PX.STATUSES.map(s => "<option" + (m.status === s ? " selected" : "") + ">" + s + "</option>").join("") + "</select></label>";
-    if (book) h += field("Author", "author", m.author, "your name") + '<span class="mtxt">Cover</span><span class="sws">' + swatches(PX.COVERS, m.cover, "cv") + "</span>";
+    if (book) {
+      const bs = (PX.D.marks[d.id] || {}).style || "strip";
+      h += field("Author", "author", m.author, "your name") + '<span class="mtxt">Cover</span><span class="sws">' + swatches(PX.COVERS, m.cover, "cv") + "</span>" +
+        '<label class="mf">Bookmark <select data-bm="1"><option value="strip"' + (bs === "strip" ? " selected" : "") + '>Strip with the title</option><option value="corner"' + (bs === "corner" ? " selected" : "") + ">Folded corner</option></select></label>";
+    }
     row.innerHTML = h; row.hidden = false;
   };
   $("metaRow").addEventListener("input", e => {
-    const d = PX.cur(), k = e.target.dataset.m; if (!d || !k) return;
+    const d = PX.cur(); if (d && e.target.dataset.bm) {                                   // bookmark style of this book
+      const rec = PX.D.marks[d.id] = PX.D.marks[d.id] || { style: "strip", doc: "", i: 0 }; rec.style = e.target.value; PX.saveSoon(); return;
+    }
+    const k = e.target.dataset.m; if (!d || !k) return;
     d.meta[k] = e.target.value; d.modified = Date.now(); PX.saveSoon(); PX.refreshSide();
     if (d.type === "book") paintCoverPreview(d);
   });
