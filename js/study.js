@@ -96,10 +96,11 @@
     const first = docsWithComments()[0]; return (PX.tmp.node = first ? { d: first.id, k: "all" } : null);
   }
   function renderStudy() {
-    badge(); const v = PX.ui.panel === "vocab";
-    $("cmBody").hidden = v; $("voBody").hidden = !v;
-    document.querySelectorAll(".stab[data-s]").forEach(b => b.classList.toggle("on", b.dataset.s === (v ? "vocab" : "comments")));
-    if (v) { PX.renderVocab(); return; }
+    badge(); const p = ["vocab", "grammar"].includes(PX.ui.panel) ? PX.ui.panel : "comments";
+    $("cmBody").hidden = p !== "comments"; $("voBody").hidden = p !== "vocab"; $("grBody").hidden = p !== "grammar";
+    document.querySelectorAll(".stab[data-s]").forEach(b => b.classList.toggle("on", b.dataset.s === p));
+    if (p === "vocab") { PX.renderVocab(); return; }
+    if (p === "grammar") { PX.grammar.render(); return; }
     renderTree(); renderPane();
   }
   document.querySelectorAll(".stab[data-s]").forEach(b => { b.onclick = () => { PX.ui.panel = b.dataset.s; PX.saveUI(); renderStudy(); }; });
@@ -131,7 +132,7 @@
         '<blockquote class="quote">“' + U.esc(c.quote) + "”</blockquote>" +
         (lost ? '<div class="warn">This passage has been changed since the comment was written. The quote above is what it was about.</div>' : "") +
         '<div class="ctext">' + U.esc(c.text) + "</div>" +
-        '<div class="actions"><button class="primary" data-a="show">Show in text</button><button data-a="edit">Edit</button><button data-a="done">' + (c.done ? "Open again" : "Mark as done") + '</button><button data-a="del" class="danger">Delete</button></div></div>';
+        '<div class="actions"><button class="primary" data-a="show">Show in text</button><button data-a="edit">Edit</button>' + (c.kind === "lang" || c.kind === "fix" ? '<button data-a="rule" title="Turn this comment into a grammar rule card">Save as grammar rule</button>' : "") + '<button data-a="done">' + (c.done ? "Open again" : "Mark as done") + '</button><button data-a="del" class="danger">Delete</button></div></div>';
     });
     box.innerHTML = html || '<div class="none center">Nothing here' + (PX.tmp.hideDone ? " (done comments are hidden)" : "") + ".</div>";
   }
@@ -150,7 +151,8 @@
     if (a === "show") {
       PX.setView("write"); PX.openDoc(s.doc.id);
       requestAnimationFrame(() => requestAnimationFrame(() => { if (!E.reveal(s.c.id)) PX.toast("That passage has been changed, so I cannot find it in the text any more."); }));
-    } else if (a === "edit") openComment(null, s);
+    } else if (a === "rule") PX.grammar.fromComment(s.doc, s.c);
+    else if (a === "edit") openComment(null, s);
     else if (a === "done") { s.c.done = !s.c.done; PX.save(); E.refreshComments(); renderStudy(); }
     else if (a === "del") {
       if (!confirm("Delete this comment?")) return;

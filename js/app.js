@@ -82,11 +82,16 @@
     let list = PX.docList();
     if (q) list = list.filter(d => (d.title + " " + strip(d.html)).toLowerCase().includes(q));
     $("docList").innerHTML = list.map(d =>
-      '<div class="doc' + (d.id === PX.ui.cur ? " on" : "") + '" data-id="' + d.id + '"><div class="t' + (d.title ? "" : " empty") + '">' + U.esc(d.title || "Untitled") +
+      '<div class="doc' + (d.id === PX.ui.cur ? " on" : "") + '" data-id="' + d.id + '"><button class="dx" data-del="1" title="Delete this document">×</button><div class="t' + (d.title ? "" : " empty") + '">' + U.esc(d.title || "Untitled") +
       '</div><div class="m"><b>' + d.lang.toUpperCase() + "</b> · " + (d.words || 0).toLocaleString() + " words · " + U.ago(d.modified) + "</div></div>").join("") ||
       '<div class="none">' + (q ? "No document matches." : "No documents yet.") + "</div>";
   }
-  $("docList").addEventListener("click", e => { const el = e.target.closest(".doc"); if (el) openDoc(el.dataset.id); });
+  $("docList").addEventListener("click", e => {
+    const el = e.target.closest(".doc"); if (!el) return;
+    if (e.target.closest("[data-del]")) { const d = PX.D.docs[el.dataset.id]; if (d) deleteDoc(d); return; }
+    openDoc(el.dataset.id);
+  });
+  $("btnDelDoc").onclick = () => { const d = PX.cur(); if (d) deleteDoc(d); };
   $("q").addEventListener("input", e => { PX.tmp.q = e.target.value; renderSide(); });
   function openDoc(id) {
     if (id === PX.ui.cur && loadedId === id) return;

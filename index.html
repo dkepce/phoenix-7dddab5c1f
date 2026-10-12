@@ -41,6 +41,7 @@
         <select id="docLang" title="Language of this document (spell-check follows it)"></select>
         <button id="btnTrAuto" class="tog" hidden title="Turkish letters: when you finish a word typed without ç ş ğ ı, Phoenix puts them back. Ctrl+Z right after a correction undoes it and teaches Phoenix to leave that word alone.">ç ş ğ ı auto</button>
         <button id="btnSetup" title="Page size, margins, fonts, spacing">Page &amp; text…</button>
+        <button id="btnDelDoc" class="danger" title="Delete this document">Delete document</button>
       </div>
       <div id="toolbar"></div>
       <div id="stage">
@@ -65,7 +66,7 @@
         <div class="snav">
           <button class="stab on" data-s="comments">Comments</button>
           <button class="stab" data-s="vocab">Vocabulary</button>
-          <button class="stab" disabled title="Coming next">Grammar</button>
+          <button class="stab" data-s="grammar">Grammar</button>
           <button class="stab" disabled title="Coming next">Examples</button>
         </div>
       </div>
@@ -74,6 +75,13 @@
         <div id="cmPane">
           <div id="cmHead"></div>
           <div id="cmCards"></div>
+        </div>
+      </div>
+      <div class="study-body" id="grBody" hidden>
+        <div id="grTree"></div>
+        <div id="grPane">
+          <div id="grHead"></div>
+          <div id="grCards"></div>
         </div>
       </div>
       <div class="study-body" id="voBody" hidden>
@@ -100,6 +108,24 @@
     </section>
   </div>
 </div>
+
+<dialog id="dlgRule">
+  <form method="dialog" id="rForm">
+    <h2 id="rTitleHd">Grammar rule</h2>
+    <p id="rSrc" class="rsrc" hidden></p>
+    <label class="lf">Title <input id="rTitle" placeholder="e.g. “the more … the more”" autocomplete="off"></label>
+    <div class="rrow">
+      <label class="lf">Language <select id="rLang"></select></label>
+      <label class="lf">Category <select id="rCat"></select></label>
+    </div>
+    <label class="lf">The rule, in your own words <textarea id="rRule" rows="4" placeholder="What is the rule, and when does it apply?"></textarea></label>
+    <div class="lf"><span>Examples (✗ wrong → ✓ correct)</span><div id="rEx"></div><button type="button" id="rAdd" class="addx">+ Add an example</button></div>
+    <menu>
+      <button value="cancel" formnovalidate>Cancel</button>
+      <button value="ok" class="primary">Save rule</button>
+    </menu>
+  </form>
+</dialog>
 
 <dialog id="dlgCard"><div id="wcBody"></div></dialog>
 
@@ -197,6 +223,7 @@
 <script src="js/app.js"></script>
 <script src="js/study.js"></script>
 <script src="js/vocab.js"></script>
+<script src="js/grammar.js"></script>
 <script src="js/world.js"></script>
 <script src="js/init.js"></script>
 </body>

@@ -27,6 +27,12 @@ Run it locally: `python -m http.server 8124` in this folder, then open http://lo
 - The example sentence is the sentence around the selection (`selectionInfo().sentence`). Cards are saved in `data.vocab`: `{word, lang, pos, def, trans, sentence, note, doc, created}`.
 - Study → Vocabulary: tree (All words / English / Deutsch / Türkçe) and A–Z cards with a filter box. No progress tags or quiz yet (decided with Doruk; quiz maybe later).
 
+## Step 2c: Grammar (`js/grammar.js`, Study -> Grammar)
+
+- Rule cards `data.grammar`: `{id, lang, cat, title, rule, examples:[{wrong,right}], src, created}`. Tree: language -> category (Tenses & verbs, Word order, Punctuation, Prepositions & cases, Articles & nouns, Spelling, Word choice, Other); cards show the rule and the examples (wrong struck through, correct in green).
+- Make a rule with **+ New rule**, or from Study -> Comments: Language / To improve cards have **Save as grammar rule** (title = first sentence of the comment, category guessed from keywords, the comment text becomes the explanation, the commented passage becomes the first "wrong" example waiting for the corrected version).
+- Documents can be deleted from the sidebar (x on hover), from the "Delete document" button above the page, or the menu; their world cards go with them.
+
 ## Step 3: World cards (`js/world.js`, World tab)
 
 - Every card belongs to a **document** (`card.doc`, one world per book). The left tree is document (🐦‍🔥) → Characters / Locations / Races / Items with counts; the form has a document selector to move a card. Links, suggestions and name look-ups stay inside the card's document; the same name in another document is a separate card. Deleting a document deletes its cards. Cards from before this change are put in the fullest document (`fixData`).

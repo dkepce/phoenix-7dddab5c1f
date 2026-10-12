@@ -23,7 +23,8 @@
 
   PX.fixData = function () {
     const D = PX.D;
-    D.docs = D.docs || {}; D.vocab = D.vocab || []; D.world = D.world || [];
+    D.docs = D.docs || {}; D.vocab = D.vocab || []; D.world = D.world || []; D.grammar = D.grammar || [];
+    D.grammar.forEach(r => { r.examples = r.examples || []; r.rule = r.rule || ""; r.title = r.title || ""; });
     D.world.forEach(c => { c.f = c.f || {}; c.extra = c.extra || []; c.notes = c.notes || ""; c.name = c.name || ""; });
     D.world = D.world.filter(c => c.name.trim() || Object.keys(c.f).length || c.notes.trim() || c.extra.length);       // forgotten empty stubs
     const fullest = Object.values(D.docs).sort((a, b) => (b.words || 0) - (a.words || 0))[0];                          // cards made before documents were their home: put them in the fullest document
