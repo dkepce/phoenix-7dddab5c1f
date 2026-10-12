@@ -23,7 +23,7 @@
 
   PX.fixData = function () {
     const D = PX.D;
-    D.docs = D.docs || {};
+    D.docs = D.docs || {}; D.vocab = D.vocab || [];
     Object.values(D.docs).forEach(d => {
       d.title = d.title || ""; d.lang = d.lang || "en"; d.html = d.html || "<p><br></p>";
       d.page = Object.assign({}, DEFAULT_PAGE, d.page); d.text = Object.assign({}, DEFAULT_TEXT, d.text);

@@ -62,17 +62,24 @@
     <section id="study" hidden>
       <div class="study-head">
         <div class="snav">
-          <button class="stab on">Comments</button>
-          <button class="stab" disabled title="Coming next">Vocabulary</button>
+          <button class="stab on" data-s="comments">Comments</button>
+          <button class="stab" data-s="vocab">Vocabulary</button>
           <button class="stab" disabled title="Coming next">Grammar</button>
           <button class="stab" disabled title="Coming next">Examples</button>
         </div>
       </div>
-      <div class="study-body">
+      <div class="study-body" id="cmBody">
         <div id="cmTree"></div>
         <div id="cmPane">
           <div id="cmHead"></div>
           <div id="cmCards"></div>
+        </div>
+      </div>
+      <div class="study-body" id="voBody" hidden>
+        <div id="voTree"></div>
+        <div id="voPane">
+          <div id="voHead"></div>
+          <div id="voCards"></div>
         </div>
       </div>
     </section>
@@ -90,6 +97,27 @@
     <menu>
       <button value="cancel" formnovalidate>Cancel</button>
       <button value="ok" class="primary" id="cOk">Save comment</button>
+    </menu>
+  </form>
+</dialog>
+
+<dialog id="dlgLook">
+  <form method="dialog" id="lForm">
+    <h2 id="lTitle">Look up</h2>
+    <div class="lrow">
+      <input id="lWord" placeholder="Word or phrase" autocomplete="off" spellcheck="false">
+      <select id="lLang" title="Language of the word"></select>
+      <button type="button" id="lGo" class="primary">Look up</button>
+    </div>
+    <div id="lSug"></div>
+    <div id="lRes"></div>
+    <label class="lf">Definition <textarea id="lDef" rows="3" placeholder="Click + on a line above to add it, or write your own"></textarea></label>
+    <label class="lf">Translation <input id="lTrans" autocomplete="off"></label>
+    <label class="lf">Your sentence <textarea id="lSent" rows="2" placeholder="A sentence of yours that uses the word (filled in automatically from your text)"></textarea></label>
+    <label class="lf">Note <input id="lNote" autocomplete="off"></label>
+    <menu>
+      <button value="cancel" formnovalidate>Cancel</button>
+      <button value="ok" class="primary" id="lOk">Save to Vocabulary</button>
     </menu>
   </form>
 </dialog>
@@ -141,6 +169,7 @@
 <script src="js/editor.js"></script>
 <script src="js/app.js"></script>
 <script src="js/study.js"></script>
+<script src="js/vocab.js"></script>
 <script src="js/init.js"></script>
 </body>
 </html>

@@ -33,7 +33,9 @@
   function hideCtx() { ctx.hidden = true; }
   E.onContext = function (x, y, info) {
     ctxInfo = info;
-    ctx.innerHTML = '<button data-a="cm">Comment…</button><hr><button data-a="copy">Copy</button><button data-a="cut">Cut</button>';
+    const short = info.quote.split(/\s+/).length <= 4, lw = info.quote.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+    ctx.innerHTML = (short && lw ? '<button data-a="look">Look up “' + U.esc(lw.length > 22 ? lw.slice(0, 21) + "…" : lw) + '”…</button>' : "") +
+      '<button data-a="cm">Comment…</button><hr><button data-a="copy">Copy</button><button data-a="cut">Cut</button>';
     ctx.hidden = false;
     const w = ctx.offsetWidth, h = ctx.offsetHeight;
     ctx.style.left = Math.max(4, Math.min(x, window.innerWidth - w - 8)) + "px"; ctx.style.top = Math.max(4, Math.min(y, window.innerHeight - h - 8)) + "px";
@@ -44,7 +46,9 @@
   ctx.addEventListener("mousedown", e => e.preventDefault());           // keep the text selected while clicking the menu
   ctx.addEventListener("click", e => {
     const b = e.target.closest("button"); if (!b) return; hideCtx();
-    if (b.dataset.a === "cm") openComment(ctxInfo, null); else { E.focus(); document.execCommand(b.dataset.a); }
+    if (b.dataset.a === "cm") openComment(ctxInfo, null);
+    else if (b.dataset.a === "look") PX.lookup(ctxInfo.quote.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ""), null, ctxInfo.sentence, PX.ui.cur);
+    else { E.focus(); document.execCommand(b.dataset.a); }
   });
   PX.commentSelection = function () {
     const info = E.selectionInfo();
@@ -92,8 +96,13 @@
     const first = docsWithComments()[0]; return (PX.tmp.node = first ? { d: first.id, k: "all" } : null);
   }
   function renderStudy() {
-    badge(); renderTree(); renderPane();
+    badge(); const v = PX.ui.panel === "vocab";
+    $("cmBody").hidden = v; $("voBody").hidden = !v;
+    document.querySelectorAll(".stab[data-s]").forEach(b => b.classList.toggle("on", b.dataset.s === (v ? "vocab" : "comments")));
+    if (v) { PX.renderVocab(); return; }
+    renderTree(); renderPane();
   }
+  document.querySelectorAll(".stab[data-s]").forEach(b => { b.onclick = () => { PX.ui.panel = b.dataset.s; PX.saveUI(); renderStudy(); }; });
   function renderTree() {
     const node = validNode(), docs = docsWithComments();
     $("cmTree").innerHTML = docs.map(d => {

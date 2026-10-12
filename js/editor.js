@@ -341,7 +341,10 @@
     while (a < b && f.text[a] === " ") a++; while (b > a && f.text[b - 1] === " ") b--;
     if (b <= a) return null;
     const rc = r.getClientRects()[0];
-    return { quote: f.text.slice(a, b), pos: a, before: f.text.slice(Math.max(0, a - 24), a), after: f.text.slice(b, b + 24), page: rc ? pageOfY(rc.top) : 1 };
+    // the whole sentence around the selection (used as the example sentence for a word)
+    const ends = [...f.text.slice(0, a).matchAll(/[.!?…]+["”')\]]*\s+/g)].pop(), s0 = ends ? ends.index + ends[0].length : 0;
+    const e1 = f.text.slice(b).match(/[.!?…]+["”')\]]*(\s|$)/), s1 = e1 ? b + e1.index + e1[0].trimEnd().length : f.text.length;
+    return { quote: f.text.slice(a, b), pos: a, before: f.text.slice(Math.max(0, a - 24), a), after: f.text.slice(b, b + 24), page: rc ? pageOfY(rc.top) : 1, sentence: f.text.slice(s0, s1).trim().slice(0, 500) };
   };
   const common = (a, b, fromEnd) => { let i = 0; while (i < a.length && i < b.length && (fromEnd ? a[a.length - 1 - i] === b[b.length - 1 - i] : a[i] === b[i])) i++; return i; };
   function findQuote(f, c) {

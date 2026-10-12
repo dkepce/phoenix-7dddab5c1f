@@ -20,6 +20,13 @@ Run it locally: `python -m http.server 8124` in this folder, then open http://lo
 - The highlighter button in the toolbar switches the comment colours on the page on/off (remembered; comments stay in Study).
 - **Study → Comments**: left a tree (🐦‍🔥 document → Note / Strength / Language / To improve, with counts, collapsible); clicking a document or a type shows all matching comments on the right as separate cards, grouped by page ("Hide done" filter). Each card quotes the passage with Show in text / Edit / Mark as done / Delete. `author` is "You"; the field exists so critiques written into `Phoenix.phx` by Claude can show up the same way later.
 
+## Step 2b: Vocabulary (look-up + personal dictionary)
+
+- Add words two ways: select a word (up to 4) → right-click → **Look up “word”…** (or the magnifier button), or the "Look up a word…" box in Study → Vocabulary. Both open the same panel (`js/vocab.js`).
+- The panel asks **Wiktionary** (definitions, en.wiktionary.org REST API; works for English, German and Turkish words, definitions in English), **MyMemory** (translations into the other two languages, machine quality — editable) and **Datamuse** + Wiktionary search (spelling suggestions, "Did you mean"). Only the looked-up word is sent. If the dictionary cannot be reached the word can still be saved with your own definition.
+- The example sentence is the sentence around the selection (`selectionInfo().sentence`). Cards are saved in `data.vocab`: `{word, lang, pos, def, trans, sentence, note, doc, created}`.
+- Study → Vocabulary: tree (All words / English / Deutsch / Türkçe) and A–Z cards with a filter box. No progress tags or quiz yet (decided with Doruk; quiz maybe later).
+
 ## How the pages work (so a future session doesn't have to rediscover it)
 
 There is one `contenteditable` column. After every change `js/editor.js` removes and re-inserts invisible `.pgap` spacers so no line is cut by a page edge (block-level before a paragraph, or inline inside a paragraph at the first line that does not fit). The white sheets are drawn behind the text. Because the spacers change the DOM, undo/redo is our own (snapshots of the clean HTML), not the browser's.
