@@ -14,7 +14,7 @@
   "file_handlers": [
     { "action": "./index.html", "accept": { "application/x-phoenix": [".phx"] } }
   ],
-  "id": "./",
+  "id": "/phoenix-7dddab5c1f/",
   "launch_handler": { "client_mode": "navigate-existing" },
   "handle_links": "preferred"
 }
