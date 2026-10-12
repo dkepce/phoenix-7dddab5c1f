@@ -2,7 +2,7 @@
    A link field ("Birthplace", "Race", ...) takes a name: if no card of that kind has the name yet, a new card is created and linked. */
 (function (PX) {
   const U = PX.U, E = PX.ed, $ = id => document.getElementById(id);
-  const W = (PX.world = { tmp: { node: "all", q: "", stack: [] } });
+  const W = (PX.world = { tmp: { node: null, q: "", stack: [] } });
   const ORDER = ["character", "location", "race", "item"];
   const TYPES = {
     character: {
@@ -56,11 +56,12 @@
   const nameOf = id => { const c = byId(id); return c ? (c.name || "Unnamed " + TYPES[c.type].label.toLowerCase()) : "(deleted)"; };
   const touch = c => { c.modified = Date.now(); PX.saveSoon(); };
   const norm = s => s.trim().toLocaleLowerCase();
-  function newCard(type, name) { const c = { id: U.uid(), type, name: name || "", f: {}, extra: [], notes: "", created: Date.now(), modified: Date.now() }; cards().push(c); return c; }
-  W.find = (name, type) => cards().find(c => (!type || c.type === type) && norm(c.name) === norm(name));
-  function linkTo(type, name) {                    // an existing card of that kind, or a new one
-    const ex = W.find(name, type); if (ex) return ex.id;
-    const c = newCard(type, name.trim()); PX.toast("New " + TYPES[type].label.toLowerCase() + " card “" + c.name + "” created. Open it to fill it in.");
+  function newCard(type, name, doc) { const c = { id: U.uid(), type, name: name || "", doc: doc || PX.ui.cur, f: {}, extra: [], notes: "", created: Date.now(), modified: Date.now() }; cards().push(c); return c; }
+  W.find = (name, type, doc) => cards().find(c => (!type || c.type === type) && (!doc || c.doc === doc) && norm(c.name) === norm(name));
+  const docTitle = id => (PX.D.docs[id] ? PX.D.docs[id].title || "Untitled" : "(deleted document)");
+  function linkTo(type, name, doc) {               // an existing card of that kind in the same document, or a new one there
+    const ex = W.find(name, type, doc); if (ex) return ex.id;
+    const c = newCard(type, name.trim(), doc); PX.toast("New " + TYPES[type].label.toLowerCase() + " card “" + c.name + "” created. Open it to fill it in.");
     return c.id;
   }
   const values = (c, f) => (f.kind === "links" ? c.f[f.k] || [] : c.f[f.k] ? [c.f[f.k]] : []);
@@ -69,35 +70,49 @@
     return f.kind === "link" ? nameOf(v) : f.kind === "links" ? v.map(nameOf).join(", ") : String(v);
   }
 
-  /* ---------- the World tab: tree + cards ---------- */
-  function counts() { const n = { all: 0 }; ORDER.forEach(t => { n[t] = 0; }); cards().forEach(c => { n.all++; n[c.type]++; }); return n; }
+  /* ---------- the World tab: tree (document -> card types) + cards ---------- */
+  PX.ui.wopen = PX.ui.wopen || {};
+  const PHOENIX = "🐦‍🔥";
+  function node() {                                 // the selected tree entry: { d: document, t: "all" | type }
+    let n = W.tmp.node;
+    if (!n || !PX.D.docs[n.d]) n = W.tmp.node = { d: PX.D.docs[PX.ui.cur] ? PX.ui.cur : (PX.docList()[0] || {}).id, t: "all" };
+    return n;
+  }
   function renderTree() {
-    const n = counts(), cur = W.tmp.node;
-    $("wTree").innerHTML = '<div class="tdoc' + (cur === "all" ? " on" : "") + '" data-n="all"><span class="chev"></span><span class="tt">All cards</span><span class="n">' + n.all + "</span></div>" +
-      '<div class="tkinds">' + ORDER.map(t => '<div class="tkind' + (cur === t ? " on" : "") + (n[t] ? "" : " zero") + '" data-n="' + t + '"><span class="k wt ' + t + '">' + TYPES[t].plural + '</span><span class="n">' + n[t] + "</span></div>").join("") + "</div>";
+    const n = node();
+    $("wTree").innerHTML = PX.docList().map(d => {
+      const mine = cards().filter(c => c.doc === d.id), open = PX.ui.wopen[d.id] !== false, count = t => mine.filter(c => c.type === t).length;
+      return '<div class="tdoc' + (n.d === d.id && n.t === "all" ? " on" : "") + '" data-d="' + d.id + '" data-t="all"><span class="chev" data-chev="1">' + (open ? "▾" : "▸") + '</span><span class="ph">' + PHOENIX + '</span><span class="tt">' + U.esc(d.title || "Untitled") + '</span><span class="n">' + mine.length + "</span></div>" +
+        (open ? '<div class="tkinds">' + ORDER.map(t => '<div class="tkind' + (n.d === d.id && n.t === t ? " on" : "") + (count(t) ? "" : " zero") + '" data-d="' + d.id + '" data-t="' + t + '"><span class="k wt ' + t + '">' + TYPES[t].plural + '</span><span class="n">' + count(t) + "</span></div>").join("") + "</div>" : "");
+    }).join("");
   }
   function renderPane() {
-    const cur = W.tmp.node, q = W.tmp.q.trim().toLocaleLowerCase(), head = $("wHead");
+    const n = node(), q = W.tmp.q.trim().toLocaleLowerCase(), head = $("wHead");
     if (!head.dataset.ready) {
       head.dataset.ready = "1";
       head.innerHTML = '<div class="ttl" id="wTtl"></div><div class="sub" id="wSub"></div><span class="grow"></span><input id="wFilter" type="search" placeholder="Filter cards…" autocomplete="off">' +
         ORDER.map(t => '<button class="wnew" data-t="' + t + '">+ ' + TYPES[t].label + "</button>").join("");
       $("wFilter").addEventListener("input", e => { W.tmp.q = e.target.value; renderPane(); });
-      head.addEventListener("click", e => { const b = e.target.closest(".wnew"); if (!b) return; const c = newCard(b.dataset.t, ""); PX.save(); W.tmp.node = c.type; renderTree(); W.open(c.id); setTimeout(() => $("wcName") && $("wcName").focus(), 30); });
+      head.addEventListener("click", e => { const b = e.target.closest(".wnew"); if (!b) return; const c = newCard(b.dataset.t, "", node().d); PX.save(); W.tmp.node = { d: c.doc, t: c.type }; renderTree(); W.open(c.id); setTimeout(() => $("wcName") && $("wcName").focus(), 30); });
     }
-    let list = cards().filter(c => cur === "all" || c.type === cur);
+    let list = cards().filter(c => c.doc === n.d && (n.t === "all" || c.type === n.t));
     if (q) list = list.filter(c => (c.name + " " + c.notes + " " + Object.keys(c.f).map(k => show(c, TYPES[c.type].fields.find(f => f.k === k) || { k, kind: "text" })).join(" ")).toLocaleLowerCase().includes(q));
     list = list.slice().sort((a, b) => (a.name || "~").localeCompare(b.name || "~", undefined, { sensitivity: "base" }));
-    $("wTtl").textContent = cur === "all" ? "World" : TYPES[cur].plural; $("wSub").textContent = list.length + (list.length === 1 ? " card" : " cards");
+    $("wTtl").innerHTML = PHOENIX + " " + U.esc(docTitle(n.d)) + (n.t === "all" ? "" : ' <span class="k wt ' + n.t + '">' + TYPES[n.t].plural + "</span>"); $("wSub").textContent = list.length + (list.length === 1 ? " card" : " cards");
     $("wCards").innerHTML = list.map(c => {
       const T = TYPES[c.type], bits = T.summary.map(k => show(c, T.fields.find(f => f.k === k))).filter(Boolean);
       const long = T.fields.filter(f => f.kind === "long").map(f => c.f[f.k]).find(Boolean) || c.notes || "";
       return '<div class="wcard ' + c.type + '" data-id="' + c.id + '"><span class="k wt ' + c.type + '">' + T.label + '</span><div class="wname">' + U.esc(c.name || "Unnamed") + "</div>" +
         (bits.length ? '<div class="wsum">' + U.esc(bits.join(" · ")) + "</div>" : "") + (long ? '<div class="wsnip">' + U.esc(long.length > 120 ? long.slice(0, 119).trimEnd() + "…" : long) + "</div>" : "") + "</div>";
-    }).join("") || '<div class="none center">' + (cards().length ? "No card matches." : "Your world is empty.<br><br>Use the buttons above to add a character, a location, a race or an item.<br>Fields like <b>Birthplace</b> or <b>Race</b> create and link the other cards for you.<br><br>You can also select a name in your text, right-click and choose <b>New world card…</b>.") + "</div>";
+    }).join("") || '<div class="none center">' + (cards().some(c => c.doc === n.d) ? "No card matches." : "This document has no world cards yet.<br><br>Use the buttons above to add a character, a location, a race or an item.<br>Fields like <b>Birthplace</b> or <b>Race</b> create and link the other cards for you.<br><br>You can also select a name in your text, right-click and choose <b>New world card…</b>.") + "</div>";
   }
   W.render = function () { renderTree(); renderPane(); };
-  $("wTree").addEventListener("click", e => { const r = e.target.closest("[data-n]"); if (!r) return; W.tmp.node = r.dataset.n; W.render(); $("wCards").scrollTop = 0; });
+  $("wTree").addEventListener("click", e => {
+    const r = e.target.closest("[data-d]"); if (!r) return; const id = r.dataset.d;
+    if (e.target.closest("[data-chev]")) { PX.ui.wopen[id] = PX.ui.wopen[id] === false; PX.saveUI(); renderTree(); return; }
+    if (r.dataset.t === "all") PX.ui.wopen[id] = true;
+    W.tmp.node = { d: id, t: r.dataset.t }; PX.saveUI(); W.render(); $("wCards").scrollTop = 0;
+  });
   $("wCards").addEventListener("click", e => { const c = e.target.closest(".wcard"); if (c) { W.tmp.stack = []; W.open(c.dataset.id); } });
   $("tabWorld").onclick = () => PX.setView("world");
 
@@ -118,7 +133,7 @@
   }
   function draw() {
     const c = byId(cur), T = TYPES[c.type], inc = incoming(cur);
-    let h = '<div class="wc-top">' + (W.tmp.stack.length > 1 ? '<button type="button" data-a="back">‹ Back</button>' : "") + '<span class="k wt ' + c.type + '">' + T.label + '</span><span class="grow"></span><button type="button" data-a="close">Close</button></div>' +
+    let h = '<div class="wc-top">' + (W.tmp.stack.length > 1 ? '<button type="button" data-a="back">‹ Back</button>' : "") + '<span class="k wt ' + c.type + '">' + T.label + '</span><span class="grow"></span><select id="wcDoc" title="The document (book) this card belongs to">' + PX.docList().map(d => '<option value="' + d.id + '"' + (d.id === c.doc ? " selected" : "") + ">" + PHOENIX + " " + U.esc(d.title || "Untitled") + "</option>").join("") + '</select><button type="button" data-a="close">Close</button></div>' +
       '<input class="wc-name" id="wcName" value="' + U.esc(c.name) + '" placeholder="Name" autocomplete="off" spellcheck="false"><div class="wc-grid">';
     T.fields.forEach(f => {
       const v = c.f[f.k];
@@ -136,13 +151,13 @@
     h += '<label class="wf long"><span>Notes</span><textarea id="wcNotes" rows="4" placeholder="Anything else about this ' + T.label.toLowerCase() + '…">' + U.esc(c.notes) + "</textarea></label>";
     if (inc.length) h += '<div class="wf long"><span>Linked from</span><div class="lks">' + inc.map(x => '<span class="lkc"><button type="button" class="lkb" data-a="go" data-id="' + x.card.id + '">' + U.esc(nameOf(x.card.id)) + '</button><small>' + U.esc(x.label) + "</small></span>").join("") + "</div></div>";
     h += '<div class="wc-foot"><button type="button" class="danger" data-a="del">Delete this card</button></div>';
-    ORDER.forEach(t => { h += '<datalist id="wl_' + t + '">' + cards().filter(x => x.type === t && x.id !== cur && x.name).map(x => '<option value="' + U.esc(x.name) + '">').join("") + "</datalist>"; });
+    ORDER.forEach(t => { h += '<datalist id="wl_' + t + '">' + cards().filter(x => x.type === t && x.id !== cur && x.name && x.doc === c.doc).map(x => '<option value="' + U.esc(x.name) + '">').join("") + "</datalist>"; });
     T.fields.filter(f => f.options).forEach(f => { h += '<datalist id="wo_' + f.k + '">' + f.options.map(o => '<option value="' + o + '">').join("") + "</datalist>"; });
     $("wcBody").innerHTML = h;
   }
   function commitLink(input) {
     const name = input.value.trim(); if (!name) return;
-    const c = byId(cur), f = TYPES[c.type].fields.find(x => x.k === input.dataset.k), id = linkTo(f.to, name);
+    const c = byId(cur), f = TYPES[c.type].fields.find(x => x.k === input.dataset.k), id = linkTo(f.to, name, c.doc);
     if (id === c.id) { PX.toast("A card cannot link to itself."); input.value = ""; return; }
     if (f.kind === "links") { c.f[f.k] = c.f[f.k] || []; if (!c.f[f.k].includes(id)) c.f[f.k].push(id); } else c.f[f.k] = id;
     touch(c); draw();
@@ -159,7 +174,10 @@
     else return;
     touch(c);
   });
-  body.addEventListener("change", e => { if (e.target.classList.contains("lkin")) commitLink(e.target); });
+  body.addEventListener("change", e => {
+    if (e.target.classList.contains("lkin")) commitLink(e.target);
+    else if (e.target.id === "wcDoc") { const c = byId(cur); c.doc = e.target.value; W.tmp.node = { d: c.doc, t: "all" }; touch(c); draw(); }
+  });
   body.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.classList.contains("lkin")) { e.preventDefault(); commitLink(e.target); } });
   body.addEventListener("click", e => {
     const b = e.target.closest("[data-a]"); if (!b) return; const c = byId(cur), a = b.dataset.a;
@@ -191,15 +209,15 @@
   let pickName = ""; const pick = $("dlgPick");
   W.fromText = function (raw) {
     const nm = raw.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "").trim(); if (!nm) return;
-    const ex = W.find(nm);
-    if (ex) { PX.setView("world"); W.tmp.node = "all"; W.tmp.stack = []; W.render(); W.open(ex.id); return; }
+    const ex = W.find(nm, null, PX.ui.cur);
+    if (ex) { PX.setView("world"); W.tmp.node = { d: ex.doc, t: "all" }; W.tmp.stack = []; W.render(); W.open(ex.id); return; }
     pickName = nm; $("pkName").textContent = "“" + nm + "” is not in your world yet. What is it?";
     $("pkTypes").innerHTML = ORDER.map(t => '<button type="button" class="primary" data-t="' + t + '">' + TYPES[t].label + "</button>").join("");
     pick.showModal();
   };
   $("pkTypes").addEventListener("click", e => {
     const b = e.target.closest("button"); if (!b) return; pick.close();
-    const c = newCard(b.dataset.t, pickName); PX.save(); PX.setView("world"); W.tmp.node = c.type; W.tmp.stack = []; W.render(); W.open(c.id);
+    const c = newCard(b.dataset.t, pickName, PX.ui.cur); PX.save(); PX.setView("world"); W.tmp.node = { d: c.doc, t: c.type }; W.tmp.stack = []; W.render(); W.open(c.id);
   });
 
   /* the whole data replaced (backup restored, another device): redraw */

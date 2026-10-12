@@ -29,6 +29,8 @@ Run it locally: `python -m http.server 8124` in this folder, then open http://lo
 
 ## Step 3: World cards (`js/world.js`, World tab)
 
+- Every card belongs to a **document** (`card.doc`, one world per book). The left tree is document (🐦‍🔥) → Characters / Locations / Races / Items with counts; the form has a document selector to move a card. Links, suggestions and name look-ups stay inside the card's document; the same name in another document is a separate card. Deleting a document deletes its cards. Cards from before this change are put in the fullest document (`fixData`).
+
 - Card types: Character, Location, Race, Item (definitions in `TYPES` at the top of `world.js`; add a type or field there). Data in `data.world`: `{id, type, name, f:{field:value}, extra:[{label,value}], notes}`.
 - Field kinds: `text` (with suggestions), `long`, `link` (one card) and `links` (several). A link stores the card id, shows the name. Typing a name that no card of that kind has yet **creates a new card** and links it (Birthplace → new Location, Race → new Race, ...). Chips open the linked card (Back button); each card lists "Linked from" (backlinks).
 - Empty stubs are discarded when the card closes (and on load). Deleting a card removes links to it. "Your own fields" add free label/value pairs.

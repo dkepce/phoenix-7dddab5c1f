@@ -26,6 +26,8 @@
     D.docs = D.docs || {}; D.vocab = D.vocab || []; D.world = D.world || [];
     D.world.forEach(c => { c.f = c.f || {}; c.extra = c.extra || []; c.notes = c.notes || ""; c.name = c.name || ""; });
     D.world = D.world.filter(c => c.name.trim() || Object.keys(c.f).length || c.notes.trim() || c.extra.length);       // forgotten empty stubs
+    const fullest = Object.values(D.docs).sort((a, b) => (b.words || 0) - (a.words || 0))[0];                          // cards made before documents were their home: put them in the fullest document
+    D.world.forEach(c => { if (!c.doc || !D.docs[c.doc]) c.doc = fullest ? fullest.id : ""; });
     Object.values(D.docs).forEach(d => {
       d.title = d.title || ""; d.lang = d.lang || "en"; d.html = d.html || "<p><br></p>";
       d.page = Object.assign({}, DEFAULT_PAGE, d.page); d.text = Object.assign({}, DEFAULT_TEXT, d.text);

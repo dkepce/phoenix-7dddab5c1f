@@ -34,7 +34,7 @@
   E.onContext = function (x, y, info) {
     ctxInfo = info;
     const short = info.quote.split(/\s+/).length <= 4, lw = info.quote.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
-    const known = short && lw && PX.world && PX.world.find(lw);
+    const known = short && lw && PX.world && PX.world.find(lw, null, PX.ui.cur);
     ctx.innerHTML = (short && lw ? '<button data-a="look">Look up “' + U.esc(lw.length > 22 ? lw.slice(0, 21) + "…" : lw) + '”…</button>' +
       '<button data-a="world">' + (known ? "Open world card" : "New world card…") + "</button>" : "") +
       '<button data-a="cm">Comment…</button><hr><button data-a="copy">Copy</button><button data-a="cut">Cut</button>';

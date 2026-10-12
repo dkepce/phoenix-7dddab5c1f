@@ -179,7 +179,11 @@
   });
   $("restoreInput").addEventListener("change", e => { const f = e.target.files[0]; e.target.value = ""; if (f) PX.restoreFrom(f); });
   function deleteDoc(d) {
-    if (!confirm("Delete “" + (d.title || "Untitled") + "”?\n\nThis cannot be undone (unless you have a backup).")) return;
+    const mine = PX.D.world.filter(c => c.doc === d.id);
+    if (!confirm("Delete “" + (d.title || "Untitled") + "”?\n\n" + (mine.length ? "Its " + mine.length + " world card" + (mine.length === 1 ? "" : "s") + " will be deleted with it.\n\n" : "") + "This cannot be undone (unless you have a backup).")) return;
+    const gone = new Set(mine.map(c => c.id));                                    // cards of this document and any links to them go too
+    PX.D.world = PX.D.world.filter(c => !gone.has(c.id));
+    PX.D.world.forEach(c => Object.keys(c.f).forEach(k => { if (gone.has(c.f[k])) delete c.f[k]; else if (Array.isArray(c.f[k])) c.f[k] = c.f[k].filter(x => !gone.has(x)); }));
     delete PX.D.docs[d.id]; loadedId = null;
     let next = PX.docList()[0]; if (!next) next = PX.newDoc();
     PX.ui.cur = next.id; PX.save(); PX.saveUI(); loadCurrent(); renderSide(); renderHead();
