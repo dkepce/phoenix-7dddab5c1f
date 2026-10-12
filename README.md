@@ -27,6 +27,14 @@ Run it locally: `python -m http.server 8124` in this folder, then open http://lo
 - The example sentence is the sentence around the selection (`selectionInfo().sentence`). Cards are saved in `data.vocab`: `{word, lang, pos, def, trans, sentence, note, doc, created}`.
 - Study → Vocabulary: tree (All words / English / Deutsch / Türkçe) and A–Z cards with a filter box. No progress tags or quiz yet (decided with Doruk; quiz maybe later).
 
+## Step 3: World cards (`js/world.js`, World tab)
+
+- Card types: Character, Location, Race, Item (definitions in `TYPES` at the top of `world.js`; add a type or field there). Data in `data.world`: `{id, type, name, f:{field:value}, extra:[{label,value}], notes}`.
+- Field kinds: `text` (with suggestions), `long`, `link` (one card) and `links` (several). A link stores the card id, shows the name. Typing a name that no card of that kind has yet **creates a new card** and links it (Birthplace → new Location, Race → new Race, ...). Chips open the linked card (Back button); each card lists "Linked from" (backlinks).
+- Empty stubs are discarded when the card closes (and on load). Deleting a card removes links to it. "Your own fields" add free label/value pairs.
+- From the text: select a name → right-click → **New world card…** (asks which type) or **Open world card** if it exists.
+- Note: the dialog's `close` event is not relied on for cleanup (the embedded preview browser never fires it); the Close button runs the cleanup itself and the event covers Esc.
+
 ## Turkish letters on a German keyboard (autocorrect)
 
 - `js/turkish.js` + `data/tr-words.txt` (49,188 word forms with counts, derived from hermitdave's FrequencyWords `tr_50k.txt`, **CC-BY-SA-4.0**, see `data/NOTICE.txt`).

@@ -20,7 +20,7 @@
     <nav id="tabs">
       <button class="tab on" id="tabWrite">Write</button>
       <button class="tab" id="tabStudy">Study</button>
-      <button class="tab" disabled title="Coming later">World</button>
+      <button class="tab" id="tabWorld">World</button>
     </nav>
     <span class="grow"></span>
     <button id="fileChip" class="chip"></button>
@@ -84,8 +84,33 @@
         </div>
       </div>
     </section>
+    <section id="world" hidden>
+      <div class="study-head">
+        <div class="snav"><button class="stab on">Cards</button></div>
+        <span class="grow"></span>
+        <span class="whint">Characters, places, peoples and things of your story, linked to each other.</span>
+      </div>
+      <div class="study-body" id="wBody">
+        <div id="wTree"></div>
+        <div id="wPane">
+          <div id="wHead"></div>
+          <div id="wCards"></div>
+        </div>
+      </div>
+    </section>
   </div>
 </div>
+
+<dialog id="dlgCard"><div id="wcBody"></div></dialog>
+
+<dialog id="dlgPick">
+  <form method="dialog">
+    <h2>New world card</h2>
+    <p id="pkName" class="pkp"></p>
+    <div id="pkTypes"></div>
+    <menu><button value="cancel" formnovalidate>Cancel</button></menu>
+  </form>
+</dialog>
 
 <dialog id="dlgComment">
   <form method="dialog" id="cForm">
@@ -172,6 +197,7 @@
 <script src="js/app.js"></script>
 <script src="js/study.js"></script>
 <script src="js/vocab.js"></script>
+<script src="js/world.js"></script>
 <script src="js/init.js"></script>
 </body>
 </html>

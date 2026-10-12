@@ -1,6 +1,6 @@
 const CACHE = "phoenix-v1";
 const SHELL = ["./", "./index.html", "./style.css", "./manifest.webmanifest",
-  "./js/util.js", "./js/store.js", "./js/turkish.js", "./data/tr-words.txt", "./js/editor.js", "./js/app.js", "./js/study.js", "./js/vocab.js", "./js/init.js",
+  "./js/util.js", "./js/store.js", "./js/turkish.js", "./data/tr-words.txt", "./js/editor.js", "./js/app.js", "./js/study.js", "./js/vocab.js", "./js/world.js", "./js/init.js",
   "./icons/logo-bar.png", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/apple-touch-icon.png"];
 
 self.addEventListener("install", e => {

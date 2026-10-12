@@ -23,7 +23,9 @@
 
   PX.fixData = function () {
     const D = PX.D;
-    D.docs = D.docs || {}; D.vocab = D.vocab || [];
+    D.docs = D.docs || {}; D.vocab = D.vocab || []; D.world = D.world || [];
+    D.world.forEach(c => { c.f = c.f || {}; c.extra = c.extra || []; c.notes = c.notes || ""; c.name = c.name || ""; });
+    D.world = D.world.filter(c => c.name.trim() || Object.keys(c.f).length || c.notes.trim() || c.extra.length);       // forgotten empty stubs
     Object.values(D.docs).forEach(d => {
       d.title = d.title || ""; d.lang = d.lang || "en"; d.html = d.html || "<p><br></p>";
       d.page = Object.assign({}, DEFAULT_PAGE, d.page); d.text = Object.assign({}, DEFAULT_TEXT, d.text);
