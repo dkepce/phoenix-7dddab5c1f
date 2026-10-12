@@ -37,6 +37,30 @@
     return res.filter(Boolean);
   }
 
+  /* ---------- Turkish typed without ç ş ğ ı (e.g. on a German keyboard) ----------
+     ü and ö are on a German keyboard, so they are taken as typed. For c, g, i, s we try every spelling and keep the ones Wiktionary knows as Turkish. */
+  const TRAMB = { c: "cç", g: "gğ", i: "iı", s: "sş" };
+  async function existing(titles) {               // which of these pages exist? (50 titles per request)
+    const out = new Set();
+    for (let i = 0; i < titles.length; i += 50) {
+      try {
+        const j = await jget(WIKI + "w/api.php?action=query&format=json&origin=*&titles=" + encodeURIComponent(titles.slice(i, i + 50).join("|")));
+        Object.values((j.query && j.query.pages) || {}).forEach(p => { if (!("missing" in p)) out.add(p.title); });
+      } catch (e) { }
+    }
+    return out;
+  }
+  async function trAlternatives(word) {
+    const lo = word.toLocaleLowerCase("tr"), letters = [...lo], n = letters.filter(ch => TRAMB[ch]).length;
+    if (!n || n > 8) return [];
+    let combos = [""]; letters.forEach(ch => { const next = []; combos.forEach(c => [...(TRAMB[ch] || ch)].forEach(x => next.push(c + x))); combos = next; });
+    const all = [...new Set(combos.flatMap(c => [c, c.charAt(0).toLocaleUpperCase("tr") + c.slice(1)]))].filter(c => c !== word);
+    const ex = await existing(all), found = all.filter(c => ex.has(c)).slice(0, 8);
+    const checked = await Promise.all(found.map(c => jget(WIKI + "api/rest_v1/page/definition/" + encodeURIComponent(c)).then(j => ({ c, tr: !!(j.tr && j.tr.length) })).catch(() => ({ c, tr: null }))));
+    const isCap = c => c !== c.toLocaleLowerCase("tr"), diacritics = c => (c.match(/[çğışÇĞİŞ]/g) || []).length;
+    return checked.filter(x => x.tr !== false).sort((a, b) => (b.tr === true) - (a.tr === true) || isCap(a.c) - isCap(b.c) || diacritics(b.c) - diacritics(a.c)).map(x => x.c);
+  }
+
   /* ---------- the look-up panel ---------- */
   const dlg = $("dlgLook"), L = { editing: null, pos: new Set(), seq: 0, sugSeq: 0, list: [], doc: "" };
   const langSel = $("lLang"); langSel.innerHTML = CODES.map(c => '<option value="' + c + '">' + LC[c] + "</option>").join("");
@@ -54,16 +78,26 @@
     if (info && info.quote.split(/\s+/).length <= 4) PX.lookup(info.quote.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ""), null, info.sentence, PX.ui.cur);
     else PX.lookup("", null, "", PX.ui.cur);
   };
-  async function doLookup() {
+  async function doLookup(noFix) {
     const w = $("lWord").value.trim(), lang = langSel.value; if (!w) { $("lWord").focus(); return; }
     const my = ++L.seq; $("lRes").innerHTML = '<div class="none">Looking up…</div>'; $("lSug").innerHTML = "";
     let wk = null, tr = [], fail = false;
     await Promise.all([wiktionary(w, lang).then(r => { wk = r; }).catch(() => { fail = true; }), translate(w, lang).then(r => { tr = r; })]);
     if (my !== L.seq) return;
     const ents = wk && wk.data ? entriesFor(wk.data, lang) : [], others = wk && wk.data ? Object.keys(wk.data).filter(k => k !== lang && k !== "other") : [];
+    if (lang === "tr" && !noFix && !fail && !ents.length) {                // maybe the Turkish letters are missing: try the other spellings
+      $("lRes").innerHTML = '<div class="none">Trying Turkish spellings…</div>';
+      const alts = await trAlternatives(w); if (my !== L.seq) return;
+      if (alts.length) {
+        $("lWord").value = alts[0];
+        L.fixNote = "Turkish letters added: “" + w + "” → “" + alts[0] + "”." + (alts.length > 1 ? " Other spellings that exist: " + alts.slice(1).join(", ") + "." : "");
+        return doLookup(true);
+      }
+    }
     L.list = []; let html = "";
-    if (fail) html = '<div class="warn2">The dictionary could not be reached (offline?). You can still save the word and write your own definition below.</div>';
-    else if (!ents.length) html = '<div class="warn2">No ' + LC[lang] + " entry found for “" + U.esc(w) + "”." + (others.length ? " There is an entry in: " + others.map(o => U.esc(LC[o] || o)).join(", ") + " (check the language on the right)." : "") + "</div>";
+    if (L.fixNote) { html = '<div class="warn2">' + U.esc(L.fixNote) + "</div>"; L.fixNote = ""; }
+    if (fail) html += '<div class="warn2">The dictionary could not be reached (offline?). You can still save the word and write your own definition below.</div>';
+    else if (!ents.length) html += '<div class="warn2">No ' + LC[lang] + " entry found for “" + U.esc(w) + "”." + (others.length ? " There is an entry in: " + others.map(o => U.esc(LC[o] || o)).join(", ") + " (check the language on the right)." : "") + "</div>";
     ents.forEach(e => {
       html += '<div class="ent"><div class="epos">' + U.esc(e.pos) + "</div>";
       e.defs.forEach(d => { L.list.push({ pos: e.pos, text: d }); html += '<div class="df"><button type="button" class="add" data-i="' + (L.list.length - 1) + '" title="Add to my definition">+</button><span>' + U.esc(d) + "</span></div>"; });

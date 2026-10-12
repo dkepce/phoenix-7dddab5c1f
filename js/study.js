@@ -80,10 +80,7 @@
   });
 
   /* ---------- Study → Comments ---------- */
-  function badge() {
-    let n = 0; Object.values(PX.D.docs).forEach(d => (d.comments || []).forEach(c => { if (!c.done) n++; }));
-    $("tabStudy").textContent = "Study" + (n ? " (" + n + ")" : "");
-  }
+  function badge() { $("tabStudy").textContent = "Study"; }          // no comment count in the tab name (Doruk's choice)
   PX.updateBadge = badge;
   const docsWithComments = () => PX.docList().filter(d => (d.comments || []).length);
   function findComment(id) {
