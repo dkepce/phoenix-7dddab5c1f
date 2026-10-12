@@ -17,7 +17,8 @@ Run it locally: `python -m http.server 8124` in this folder, then open http://lo
 - Select text in Write, right-click inside the selection → **Comment…** (or the speech-bubble button in the toolbar). Right-click without a selection still gives the browser's own menu, so spelling suggestions keep working.
 - A comment has a type (Note / Strength / To improve / Language), is painted on the page with the CSS Highlight API (no markup in the document) and stored in `doc.comments`.
 - It is anchored by its **quoted text** plus 24 characters before/after (`quote`, `before`, `after`, hint `pos`), found again after every edit; `page` is kept up to date. If the passage has been edited away the card says so ("passage changed").
-- **Study → Comments** lists them grouped by page; clicking one shows a card quoting the passage with Show in text / Edit / Mark as done / Delete. `author` is "You"; the field exists so critiques written into `Phoenix.phx` by Claude can show up the same way later.
+- The highlighter button in the toolbar switches the comment colours on the page on/off (remembered; comments stay in Study).
+- **Study → Comments**: left a tree (🐦‍🔥 document → Note / Strength / Language / To improve, with counts, collapsible); clicking a document or a type shows all matching comments on the right as separate cards, grouped by page ("Hide done" filter). Each card quotes the passage with Show in text / Edit / Mark as done / Delete. `author` is "You"; the field exists so critiques written into `Phoenix.phx` by Claude can show up the same way later.
 
 ## How the pages work (so a future session doesn't have to rediscover it)
 

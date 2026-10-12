@@ -378,7 +378,7 @@
         if (!c.done && groups[c.kind]) groups[c.kind].push(r);
       });
     }
-    if (hasHL) Object.keys(groups).forEach(k => { if (groups[k].length) CSS.highlights.set("pxc-" + k, new Highlight(...groups[k])); else CSS.highlights.delete("pxc-" + k); });
+    if (hasHL) Object.keys(groups).forEach(k => { if (E.showHL !== false && groups[k].length) CSS.highlights.set("pxc-" + k, new Highlight(...groups[k])); else CSS.highlights.delete("pxc-" + k); });
     if (changed) PX.saveSoon();
     if (E.onComments) E.onComments();
   };

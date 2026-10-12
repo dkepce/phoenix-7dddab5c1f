@@ -15,7 +15,7 @@
     right: '<path d="M3 5h14M8 9h9M3 13h14M8 17h9"/>', full: '<path d="M3 5h14M3 9h14M3 13h14M3 17h14"/>',
     ul: '<path d="M8 5h9M8 10h9M8 15h9"/><circle cx="4" cy="5" r=".8"/><circle cx="4" cy="10" r=".8"/><circle cx="4" cy="15" r=".8"/>',
     ol: '<path d="M9 5h8M9 10h8M9 15h8"/><path d="M3.5 4l1-.6V7M3 11.5c0-1.4 2-1.4 2 0s-2 1.6-2 2.6h2"/>',
-    clear: '<path d="M4 16l9-12M10 16h6M6 4h9"/>', comment: '<path d="M3 4h14v9H9l-4 3.5V13H3z"/><path d="M6.5 7.5h7M6.5 10h4"/>',
+    clear: '<path d="M4 16l9-12M10 16h6M6 4h9"/>', comment: '<path d="M3 4h14v9H9l-4 3.5V13H3z"/><path d="M6.5 7.5h7M6.5 10h4"/>', hl: '<path d="M5 14l6.5-6.5 3 3L8 17H5z"/><path d="M11.5 7.5l2-2 3 3-2 2M3 18.5h14"/>',
     print: '<path d="M5 8V3h10v5M5 14H3V8h14v6h-2"/><rect x="5" y="12" width="10" height="5"/>'
   };
   const ic = n => '<svg viewBox="0 0 20 20">' + I[n] + "</svg>";
@@ -28,6 +28,7 @@
     ["right", ic("right"), "Align right", () => E.cmd("justifyRight")], ["full", ic("full"), "Justify", () => E.cmd("justifyFull")], "|",
     ["ul", ic("ul"), "Bullet list", () => E.cmd("insertUnorderedList")], ["ol", ic("ol"), "Numbered list", () => E.cmd("insertOrderedList")], "|",
     ["comment", ic("comment"), "Comment on the selected text (also: right-click the selection)", () => PX.commentSelection()],
+    ["hl", ic("hl"), "Show / hide the comment colours on the page", () => PX.toggleHL()],
     ["clear", ic("clear"), "Clear formatting", () => E.clearFormat()], ["print", ic("print"), "Print / save as PDF", () => printDoc()]
   ];
   const STYLES = [["P", "Normal text"], ["H1", "Title"], ["H2", "Heading"], ["H3", "Subheading"], ["BLOCKQUOTE", "Quote"]];
