@@ -59,7 +59,7 @@
     D.grammar.forEach(r => { r.examples = r.examples || []; r.rule = r.rule || ""; r.title = r.title || ""; });
     D.world.forEach(c => { c.f = c.f || {}; c.extra = c.extra || []; c.notes = c.notes || ""; c.name = c.name || ""; });
     D.world = D.world.filter(c => c.name.trim() || Object.keys(c.f).length || c.notes.trim() || c.extra.length);       // forgotten empty stubs
-    const fullest = Object.values(D.docs).sort((a, b) => (b.words || 0) - (a.words || 0))[0];                          // cards made before documents were their home: put them in the fullest document
+    const fullest = Object.values(D.docs).filter(d => d.type !== "chapter").sort((a, b) => (b.words || 0) - (a.words || 0))[0];                          // cards made before documents were their home: put them in the fullest document
     D.world.forEach(c => { if (!c.doc || !D.docs[c.doc]) c.doc = fullest ? fullest.id : ""; });
     Object.values(D.docs).forEach(d => {
       d.title = d.title || ""; d.lang = d.lang || "en"; d.html = d.html || "<p><br></p>";
@@ -69,6 +69,7 @@
       if (d.type === "chapter" && !D.docs[d.parent]) { d.type = "story"; delete d.parent; }                          // a chapter whose book is gone becomes a story
       if (d.type !== "chapter") delete d.parent; else d.order = d.order || 0;
     });
+    D.world.forEach(c => { const d = D.docs[c.doc]; if (d && d.type === "chapter") c.doc = d.parent; });                  // a chapter has no world of its own: its cards belong to the book
     PX.S.defaultPage = Object.assign({}, DEFAULT_PAGE, PX.S.defaultPage); PX.S.defaultText = Object.assign({}, DEFAULT_TEXT, PX.S.defaultText);
   };
   PX.fixData();

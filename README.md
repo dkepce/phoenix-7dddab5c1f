@@ -55,7 +55,8 @@ Run it locally: `python -m http.server 8124` in this folder, then open http://lo
   - **email:** an inbox-style message (avatar, From/To, date, subject). **note:** a sticky note pinned to cork, in the chosen colour.
 - **Pages in the Read tab are the same pages as in Write.** `reading.js` contains a headless copy of the editor's break algorithm (`place()`; if `layout()` in `editor.js` changes, change it there too): the text is laid out once in a hidden box, spacers push lines that would be cut onto the next page, and a page is a window (`translateY(-n * pageStep)`) onto that column. Checked against Write: same page counts and same first words on every page.
 - Reading position per document is remembered in `PX.ui.readPos`. `prefers-reduced-motion` shortens the animations. Designed for PC only; no sound.
-- Not yet: world cards are still per document, so in a book they are per chapter; printing a whole book; email/note have no page flip (by design).
+- **World tab = books.** Only books get an entry; a chapter uses its book's world (`W.homeOf`, cards found on a chapter are moved to the book in `fixData`). A document that is not a book is listed only while it still holds cards from before (move them with the selector on the card; the entry then disappears).
+- Not yet: printing a whole book; email/note have no page flip (by design).
 
 ## Turkish letters on a German keyboard (autocorrect)
 

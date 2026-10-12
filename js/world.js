@@ -56,8 +56,13 @@
   const nameOf = id => { const c = byId(id); return c ? (c.name || "Unnamed " + TYPES[c.type].label.toLowerCase()) : "(deleted)"; };
   const touch = c => { c.modified = Date.now(); PX.saveSoon(); };
   const norm = s => s.trim().toLocaleLowerCase();
-  function newCard(type, name, doc) { const c = { id: U.uid(), type, name: name || "", doc: doc || PX.ui.cur, f: {}, extra: [], notes: "", created: Date.now(), modified: Date.now() }; cards().push(c); return c; }
-  W.find = (name, type, doc) => cards().find(c => (!type || c.type === type) && (!doc || c.doc === doc) && norm(c.name) === norm(name));
+  /* a world belongs to a book: a chapter uses its book's world and never has one of its own.
+     Documents that are not books are only listed while they still hold cards from before (move those cards to a book with the selector on the card). */
+  const homeOf = id => { const d = PX.D.docs[id]; return d && d.type === "chapter" && PX.D.docs[d.parent] ? d.parent : id; };
+  const homes = () => PX.docList().filter(d => d.type === "book" || (d.type !== "chapter" && cards().some(c => c.doc === d.id)));
+  W.homeOf = homeOf;
+  function newCard(type, name, doc) { const c = { id: U.uid(), type, name: name || "", doc: homeOf(doc || PX.ui.cur), f: {}, extra: [], notes: "", created: Date.now(), modified: Date.now() }; cards().push(c); return c; }
+  W.find = (name, type, doc) => { const hd = doc && homeOf(doc); return cards().find(c => (!type || c.type === type) && (!hd || c.doc === hd) && norm(c.name) === norm(name)); };
   const docTitle = id => (PX.D.docs[id] ? PX.D.docs[id].title || "Untitled" : "(deleted document)");
   function linkTo(type, name, doc) {               // an existing card of that kind in the same document, or a new one there
     const ex = W.find(name, type, doc); if (ex) return ex.id;
@@ -74,13 +79,14 @@
   PX.ui.wopen = PX.ui.wopen || {};
   const PHOENIX = "🐦‍🔥";
   function node() {                                 // the selected tree entry: { d: document, t: "all" | type }
-    let n = W.tmp.node;
-    if (!n || !PX.D.docs[n.d]) n = W.tmp.node = { d: PX.D.docs[PX.ui.cur] ? PX.ui.cur : (PX.docList()[0] || {}).id, t: "all" };
+    let n = W.tmp.node; const hs = homes();
+    if (!n || !hs.some(d => d.id === n.d)) { const mine = homeOf(PX.ui.cur); n = W.tmp.node = { d: hs.some(d => d.id === mine) ? mine : (hs[0] || {}).id || "", t: "all" }; }
     return n;
   }
   function renderTree() {
     const n = node();
-    $("wTree").innerHTML = PX.docList().map(d => {
+    if (!homes().length) { $("wTree").innerHTML = '<div class="none">No books yet.<br><br>A world belongs to a book. Make a Book (New…) and its characters, places, peoples and things live here.</div>'; return; }
+    $("wTree").innerHTML = homes().map(d => {
       const mine = cards().filter(c => c.doc === d.id), open = PX.ui.wopen[d.id] !== false, count = t => mine.filter(c => c.type === t).length;
       return '<div class="tdoc' + (n.d === d.id && n.t === "all" ? " on" : "") + '" data-d="' + d.id + '" data-t="all"><span class="chev" data-chev="1">' + (open ? "▾" : "▸") + '</span><span class="ph">' + PHOENIX + '</span><span class="tt">' + U.esc(d.title || "Untitled") + '</span><span class="n">' + mine.length + "</span></div>" +
         (open ? '<div class="tkinds">' + ORDER.map(t => '<div class="tkind' + (n.d === d.id && n.t === t ? " on" : "") + (count(t) ? "" : " zero") + '" data-d="' + d.id + '" data-t="' + t + '"><span class="k wt ' + t + '">' + TYPES[t].plural + '</span><span class="n">' + count(t) + "</span></div>").join("") + "</div>" : "");
@@ -88,6 +94,7 @@
   }
   function renderPane() {
     const n = node(), q = W.tmp.q.trim().toLocaleLowerCase(), head = $("wHead");
+    $("wPane").classList.toggle("noworld", !n.d);
     if (!head.dataset.ready) {
       head.dataset.ready = "1";
       head.innerHTML = '<div class="ttl" id="wTtl"></div><div class="sub" id="wSub"></div><span class="grow"></span><input id="wFilter" type="search" placeholder="Filter cards…" autocomplete="off">' +
@@ -104,7 +111,7 @@
       const long = T.fields.filter(f => f.kind === "long").map(f => c.f[f.k]).find(Boolean) || c.notes || "";
       return '<div class="wcard ' + c.type + '" data-id="' + c.id + '"><span class="k wt ' + c.type + '">' + T.label + '</span><div class="wname">' + U.esc(c.name || "Unnamed") + "</div>" +
         (bits.length ? '<div class="wsum">' + U.esc(bits.join(" · ")) + "</div>" : "") + (long ? '<div class="wsnip">' + U.esc(long.length > 120 ? long.slice(0, 119).trimEnd() + "…" : long) + "</div>" : "") + "</div>";
-    }).join("") || '<div class="none center">' + (cards().some(c => c.doc === n.d) ? "No card matches." : "This document has no world cards yet.<br><br>Use the buttons above to add a character, a location, a race or an item.<br>Fields like <b>Birthplace</b> or <b>Race</b> create and link the other cards for you.<br><br>You can also select a name in your text, right-click and choose <b>New world card…</b>.") + "</div>";
+    }).join("") || '<div class="none center">' + (cards().some(c => c.doc === n.d) ? "No card matches." : (n.d ? "This book has no world cards yet.<br><br>Use the buttons above to add a character, a location, a race or an item.<br>Fields like <b>Birthplace</b> or <b>Race</b> create and link the other cards for you.<br><br>You can also select a name in a chapter, right-click and choose <b>New world card…</b>." : "Make a Book first, then its world lives here.")) + "</div>";
   }
   W.render = function () { renderTree(); renderPane(); };
   $("wTree").addEventListener("click", e => {
@@ -133,7 +140,7 @@
   }
   function draw() {
     const c = byId(cur), T = TYPES[c.type], inc = incoming(cur);
-    let h = '<div class="wc-top">' + (W.tmp.stack.length > 1 ? '<button type="button" data-a="back">‹ Back</button>' : "") + '<span class="k wt ' + c.type + '">' + T.label + '</span><span class="grow"></span><select id="wcDoc" title="The document (book) this card belongs to">' + PX.docList().map(d => '<option value="' + d.id + '"' + (d.id === c.doc ? " selected" : "") + ">" + PHOENIX + " " + U.esc(d.title || "Untitled") + "</option>").join("") + '</select><button type="button" data-a="close">Close</button></div>' +
+    let h = '<div class="wc-top">' + (W.tmp.stack.length > 1 ? '<button type="button" data-a="back">‹ Back</button>' : "") + '<span class="k wt ' + c.type + '">' + T.label + '</span><span class="grow"></span><select id="wcDoc" title="The book this card belongs to">' + homes().concat(homes().some(d => d.id === c.doc) || !PX.D.docs[c.doc] ? [] : [PX.D.docs[c.doc]]).map(d => '<option value="' + d.id + '"' + (d.id === c.doc ? " selected" : "") + ">" + PHOENIX + " " + U.esc(d.title || "Untitled") + "</option>").join("") + '</select><button type="button" data-a="close">Close</button></div>' +
       '<input class="wc-name" id="wcName" value="' + U.esc(c.name) + '" placeholder="Name" autocomplete="off" spellcheck="false"><div class="wc-grid">';
     T.fields.forEach(f => {
       const v = c.f[f.k];
@@ -217,7 +224,7 @@
   };
   $("pkTypes").addEventListener("click", e => {
     const b = e.target.closest("button"); if (!b) return; pick.close();
-    const c = newCard(b.dataset.t, pickName, PX.ui.cur); PX.save(); PX.setView("world"); W.tmp.node = { d: c.doc, t: c.type }; W.tmp.stack = []; W.render(); W.open(c.id);
+    const c = newCard(b.dataset.t, pickName, homeOf(PX.ui.cur)); PX.save(); PX.setView("world"); W.tmp.node = { d: c.doc, t: c.type }; W.tmp.stack = []; W.render(); W.open(c.id);
   });
 
   /* the whole data replaced (backup restored, another device): redraw */

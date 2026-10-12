@@ -330,6 +330,9 @@ dialog menu { display: flex; justify-content: flex-end; gap: 8px; padding: 0; ma
 .bh-list li.none { cursor: default; justify-content: center; }
 .bh-hint { color: var(--muted); font-size: 13px; margin-top: 14px; }
 
+#wPane.noworld #wHead { display: none; }
+#wTree .none { padding: 14px 12px; line-height: 1.5; }
+
 /* ---------- Read tab ---------- */
 #reading { flex: 1; min-width: 0; display: flex; }
 #rdSide { width: 270px; flex: none; background: var(--bg2); border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 12px 8px 0; gap: 8px; }
