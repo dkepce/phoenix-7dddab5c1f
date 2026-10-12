@@ -77,14 +77,23 @@
 
   /* ---------- document list ---------- */
   function strip(html) { return html.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " "); }
+  function docRow(d, chapterNo) {
+    const T = PX.TYPES[d.type], book = d.type === "book", kids = book ? PX.chapters(d.id) : [];
+    const words = book ? kids.reduce((n, k) => n + (k.words || 0), 0) : (d.words || 0);
+    const jdate = d.type === "journal" && d.meta.date ? new Date(d.meta.date + "T12:00:00").toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", year: "numeric" }) : "";
+    const title = d.title || jdate || (chapterNo ? "" : "Untitled");
+    const meta = book ? kids.length + (kids.length === 1 ? " chapter" : " chapters") + " · " + words.toLocaleString() + " words" : "<b>" + d.lang.toUpperCase() + "</b> · " + words.toLocaleString() + " words · " + U.ago(d.modified);
+    return '<div class="doc t-' + d.type + (chapterNo ? " ch" : "") + (d.id === PX.ui.cur ? " on" : "") + '" data-id="' + d.id + '" style="--tc:' + T.color + '">' +
+      '<button class="dx" data-del="1" title="Delete this ' + T.name.toLowerCase() + '">×</button>' +
+      '<div class="t' + (title ? "" : " empty") + '"><span class="ti">' + T.icon + "</span>" + (chapterNo ? '<span class="cn">' + chapterNo + ".</span> " : "") + U.esc(title || (chapterNo ? "Untitled chapter" : "")) + "</div>" +
+      '<div class="m">' + (d.type === "story" || chapterNo ? "" : T.name + " · ") + meta + "</div></div>";
+  }
   function renderSide() {
     const q = PX.tmp.q.trim().toLowerCase();
-    let list = PX.docList();
-    if (q) list = list.filter(d => (d.title + " " + strip(d.html)).toLowerCase().includes(q));
-    $("docList").innerHTML = list.map(d =>
-      '<div class="doc' + (d.id === PX.ui.cur ? " on" : "") + '" data-id="' + d.id + '"><button class="dx" data-del="1" title="Delete this document">×</button><div class="t' + (d.title ? "" : " empty") + '">' + U.esc(d.title || "Untitled") +
-      '</div><div class="m"><b>' + d.lang.toUpperCase() + "</b> · " + (d.words || 0).toLocaleString() + " words · " + U.ago(d.modified) + "</div></div>").join("") ||
-      '<div class="none">' + (q ? "No document matches." : "No documents yet.") + "</div>";
+    let html;
+    if (q) html = PX.docList().filter(d => (d.title + " " + strip(d.html)).toLowerCase().includes(q)).map(d => docRow(d)).join("");
+    else html = PX.topList().map(d => docRow(d) + (d.type === "book" ? PX.chapters(d.id).map((c, i) => docRow(c, i + 1)).join("") : "")).join("");
+    $("docList").innerHTML = html || '<div class="none">' + (q ? "No document matches." : "No documents yet.") + "</div>";
   }
   $("docList").addEventListener("click", e => {
     const el = e.target.closest(".doc"); if (!el) return;
@@ -100,13 +109,16 @@
   }
   PX.openDoc = openDoc;
   function loadCurrent() {
-    const d = PX.cur();
+    const d = PX.cur(), book = !!d && d.type === "book";           // a book has no page of its own: its "Write" screen is the chapter overview
+    $("toolbar").hidden = $("stage").hidden = $("status").hidden = book; $("bookHome").hidden = !book;
     if (!d) { E.unload(); loadedId = null; return; }
+    if (book) { if (loadedId !== d.id) { E.unload(); loadedId = d.id; } return; }
     if (loadedId !== d.id) { E.load(d); loadedId = d.id; d.words = E.stats().words; syncToolbar(); }
   }
   function renderHead() {
     const d = PX.cur(); $("docTitle").value = d ? d.title : ""; $("docTitle").disabled = !d;
     $("docLang").value = d ? d.lang : "en"; $("side").classList.toggle("off", !PX.ui.sidebar); syncTr();
+    if (PX.kinds) PX.kinds.render();
   }
   function syncTr() {                                // the Turkish-letters switch only shows for Turkish documents
     const d = PX.cur(), tr = !!d && d.lang === "tr", b = $("btnTrAuto");
@@ -117,17 +129,23 @@
     PX.toast(PX.S.trAuto === false ? "Turkish letter autocorrect is off." : "Turkish letter autocorrect is on: finish a word with a space and ç ş ğ ı are put back.");
     E.focus();
   };
-  $("docTitle").addEventListener("input", e => { const d = PX.cur(); if (!d) return; d.title = e.target.value; d.modified = Date.now(); PX.saveSoon(); renderSide(); });
+  $("docTitle").addEventListener("input", e => { const d = PX.cur(); if (!d) return; d.title = e.target.value; d.modified = Date.now(); PX.saveSoon(); renderSide(); if (PX.kinds) PX.kinds.render(true); });
   $("docLang").innerHTML = Object.entries(PX.LANGS).map(([k, v]) => '<option value="' + k + '">' + v + "</option>").join("");
   $("docLang").addEventListener("change", e => { const d = PX.cur(); if (!d) return; d.lang = e.target.value; PX.S.defaultLang = d.lang; E.refresh(); PX.saveSoon(); renderSide(); syncTr(); E.focus(); });
-  $("btnNew").onclick = () => { const d = PX.newDoc(); PX.ui.cur = d.id; PX.saveUI(); PX.save(); loadCurrent(); renderSide(); renderHead(); $("docTitle").focus(); };
+  $("btnNew").onclick = () => PX.kinds.chooseNew();
+  /* open a freshly made document in Write and put the cursor in its title */
+  PX.showNew = function (d) {
+    if (PX.ui.view !== "write") PX.setView("write");
+    PX.ui.cur = d.id; PX.saveUI(); PX.save(); loadCurrent(); renderSide(); renderHead(); $("docTitle").focus();
+  };
+  PX.refreshSide = renderSide;
   $("btnSide").onclick = () => { const off = $("side").classList.toggle("off"); PX.ui.sidebar = !off; PX.saveUI(); };
 
   /* ---------- status bar & zoom ---------- */
   let stRaf = 0;
   function updateStatus() {
     if (stRaf) return; stRaf = requestAnimationFrame(() => {
-      stRaf = 0; if (!PX.cur()) return; const s = E.stats();
+      stRaf = 0; if (!PX.cur() || PX.cur().type === "book") return; const s = E.stats();
       $("stPage").textContent = "Page " + (s.page || 1) + " of " + s.pages; $("stWords").textContent = s.words.toLocaleString() + " words";
       $("stChars").textContent = s.chars.toLocaleString() + " characters"; $("stSel").textContent = s.selWords ? s.selWords + " selected" : "";
       const d = PX.cur(); if (d) { d.words = s.words; }
@@ -167,8 +185,9 @@
     $("menu").innerHTML =
       (F.ok ? '<button data-a="folder">' + (F.dir ? "Change save folder…" : "Choose save folder…") + "</button>" : "") +
       '<button data-a="backup">Download a backup (.phx)</button><button data-a="restore">Restore from a backup…</button><hr>' +
-      (d ? '<button data-a="txt">Export this document as text (.txt)</button><button data-a="print">Print / save as PDF</button><button data-a="dup">Duplicate this document</button><hr>' +
-        '<button data-a="del" class="danger">Delete this document…</button>' : "");
+      (d ? '<button data-a="txt">Export this ' + PX.TYPES[d.type].name.toLowerCase() + ' as text (.txt)</button>' +
+        (d.type === "book" ? "" : '<button data-a="print">Print / save as PDF</button><button data-a="dup">Duplicate this document</button>') + "<hr>" +
+        '<button data-a="del" class="danger">Delete this ' + PX.TYPES[d.type].name.toLowerCase() + "…</button>" : "");
   }
   $("btnMenu").onclick = e => { e.stopPropagation(); const m = $("menu"); if (m.hidden) buildMenu(); m.hidden = !m.hidden; };
   document.addEventListener("click", e => { if (!e.target.closest("#menu")) $("menu").hidden = true; });
@@ -177,21 +196,32 @@
     const d = PX.cur();
     ({
       folder: () => PX.chooseFolder(), backup: () => PX.downloadBackup(), restore: () => $("restoreInput").click(), print: () => printDoc(),
-      txt: () => { if (!d) return; downloadText(U.safeName(d.title) + ".txt", (d.title ? d.title + "\n\n" : "") + E.plainText(d.html)); },
-      dup: () => { if (!d) return; E.layoutNow(); const n = PX.newDoc((d.title || "Untitled") + " (copy)", d.html); n.lang = d.lang; n.page = Object.assign({}, d.page); n.text = Object.assign({}, d.text); n.words = d.words; n.comments = JSON.parse(JSON.stringify(d.comments || [])); PX.ui.cur = n.id; PX.save(); loadCurrent(); renderSide(); renderHead(); },
+      txt: () => {
+        if (!d) return; E.layoutNow();
+        const body = d.type === "book" ? PX.chapters(d.id).map((c, i) => "Chapter " + (i + 1) + (c.title ? ": " + c.title : "") + "\n\n" + E.plainText(c.html)).join("\n\n\n") : E.plainText(d.html);
+        downloadText(U.safeName(d.title) + ".txt", (d.title ? d.title + "\n\n" : "") + body);
+      },
+      dup: () => {
+        if (!d) return; E.layoutNow();
+        const n = PX.newDoc((d.title || "Untitled") + " (copy)", d.html, { type: d.type === "chapter" ? "story" : d.type, meta: JSON.parse(JSON.stringify(d.meta || {})) });
+        n.lang = d.lang; n.page = Object.assign({}, d.page); n.text = Object.assign({}, d.text); n.words = d.words; n.comments = JSON.parse(JSON.stringify(d.comments || [])); PX.ui.cur = n.id; PX.save(); loadCurrent(); renderSide(); renderHead();
+      },
       del: () => { if (d) deleteDoc(d); }
     })[a.dataset.a]();
   });
   $("restoreInput").addEventListener("change", e => { const f = e.target.files[0]; e.target.value = ""; if (f) PX.restoreFrom(f); });
   function deleteDoc(d) {
-    const mine = PX.D.world.filter(c => c.doc === d.id);
-    if (!confirm("Delete “" + (d.title || "Untitled") + "”?\n\n" + (mine.length ? "Its " + mine.length + " world card" + (mine.length === 1 ? "" : "s") + " will be deleted with it.\n\n" : "") + "This cannot be undone (unless you have a backup).")) return;
+    const kids = d.type === "book" ? PX.chapters(d.id) : [], ids = [d.id].concat(kids.map(k => k.id));        // deleting a book takes its chapters with it
+    const mine = PX.D.world.filter(c => ids.includes(c.doc));
+    if (!confirm("Delete “" + (d.title || "Untitled") + "”?\n\n" + (kids.length ? "Its " + kids.length + " chapter" + (kids.length === 1 ? "" : "s") + " will be deleted with it.\n\n" : "") +
+      (mine.length ? "Its " + mine.length + " world card" + (mine.length === 1 ? "" : "s") + " will be deleted with it.\n\n" : "") + "This cannot be undone (unless you have a backup).")) return;
     const gone = new Set(mine.map(c => c.id));                                    // cards of this document and any links to them go too
     PX.D.world = PX.D.world.filter(c => !gone.has(c.id));
     PX.D.world.forEach(c => Object.keys(c.f).forEach(k => { if (gone.has(c.f[k])) delete c.f[k]; else if (Array.isArray(c.f[k])) c.f[k] = c.f[k].filter(x => !gone.has(x)); }));
-    delete PX.D.docs[d.id]; loadedId = null;
-    let next = PX.docList()[0]; if (!next) next = PX.newDoc();
+    ids.forEach(id => { delete PX.D.docs[id]; }); loadedId = null;
+    let next = (d.type === "chapter" && PX.D.docs[d.parent]) || PX.topList()[0]; if (!next) next = PX.newDoc();
     PX.ui.cur = next.id; PX.save(); PX.saveUI(); loadCurrent(); renderSide(); renderHead();
+    if (PX.read) PX.read.render();
   }
   function downloadText(name, text) {
     const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" })); a.download = name;
@@ -200,7 +230,9 @@
 
   /* ---------- printing ---------- */
   function printDoc() {
-    const d = PX.cur(); if (!d) return; E.layoutNow();
+    const d = PX.cur(); if (!d) return;
+    if (d.type === "book") { PX.toast("Open a chapter to print it. (Printing a whole book is not built yet.)"); return; }
+    E.layoutNow();
     const p = d.page, t = d.text; let w = p.w, h = p.h; if (p.landscape) [w, h] = [h, w];
     const pos = { left: "left", center: "center", right: "right" }[p.numbers];
     const css = "@page{size:" + w + "mm " + h + "mm;margin:" + p.mt + "mm " + p.mr + "mm " + p.mb + "mm " + p.ml + "mm;" +
@@ -227,6 +259,7 @@
     $("sMargins").value = Object.keys(PX.MARGINS).find(k => PX.MARGINS[k].join() === [p.mt, p.mr, p.mb, p.ml].join()) || "Custom";
     $("sNum").value = p.numbers; $("sPaper").value = p.paper;
     $("tFont").value = t.font; $("tSize").value = t.size; $("tLh").value = String(t.lh); $("tPs").value = String(t.ps); $("tIndent").checked = !!t.indent;
+    $("sAllChRow").hidden = d.type !== "book"; $("sAllCh").checked = d.type === "book"; $("sDefaultRow").hidden = d.type !== "story";
     customToggle(); dlg.showModal();
   };
   $("setupForm").addEventListener("submit", e => {
@@ -238,7 +271,8 @@
     page.mt = Math.min(page.mt, page.h / 3); page.mb = Math.min(page.mb, page.h / 3); page.ml = Math.min(page.ml, page.w / 3); page.mr = Math.min(page.mr, page.w / 3);
     const text = { font: $("tFont").value, size: Math.min(48, Math.max(6, num("tSize") || 12)), lh: +$("tLh").value, ps: +$("tPs").value, indent: $("tIndent").checked };
     d.page = page; d.text = text;
-    if ($("sDefault").checked) { PX.S.defaultPage = Object.assign({}, page); PX.S.defaultText = Object.assign({}, text); }
+    if (d.type === "book" && $("sAllCh").checked) PX.chapters(d.id).forEach(c => { c.page = Object.assign({}, page); c.text = Object.assign({}, text); c.modified = Date.now(); });
+    if ($("sDefault").checked && d.type === "story") { PX.S.defaultPage = Object.assign({}, page); PX.S.defaultText = Object.assign({}, text); }
     E.refresh(); PX.save(); E.focus();
   });
 

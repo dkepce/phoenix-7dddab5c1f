@@ -21,6 +21,38 @@
   PX.ui = Object.assign({}, DEFAULT_UI, load("phoenix.ui", null) || {});
   PX.tmp = { toast: "", q: "" };
 
+  /* ---------- document types ----------
+     Every document has a type. "chapter" belongs to a book (doc.parent) and is not offered in the New dialog.
+     page/text are the starting settings of a new document of that type (a story uses the user's own defaults). */
+  const pg = (size, w, h, m, numbers, paper) => ({ size, w, h, landscape: false, mt: m[0], mr: m[1], mb: m[2], ml: m[3], numbers, paper });
+  const BOOK_PAGE = pg("A5", 148, 210, PX.MARGINS.Book, "center", "paper");
+  const BOOK_TEXT = { font: "Georgia", size: 11, lh: 1.5, ps: 0, indent: true };
+  const ic = d => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + d + "</svg>";
+  PX.TYPES = {
+    story: { name: "Story", color: "#f7b32b", desc: "Fiction and longer writing, with world cards. Read as calm pages.", ph: "Untitled",
+      icon: ic('<path d="M20.2 12.2a6 6 0 0 0-8.5-8.5L5 10.5V19h8.5z"/><path d="M16 8 2 22M17.5 15H9"/>') },
+    book: { name: "Book", color: "#e08a5f", desc: "Chapters in order, a cover and an automatic table of contents. Read as an open book.", ph: "Book title",
+      page: BOOK_PAGE, text: BOOK_TEXT, meta: { author: "", cover: "oxblood" },
+      icon: ic('<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>') },
+    document: { name: "Document", color: "#8fb6e8", desc: "Letters, reports, anything formal. Read pinned to a board, pages flip up.", ph: "Document title",
+      page: pg("A4", 210, 297, PX.MARGINS.Normal, "right", "white"), text: { font: "Calibri", size: 11, lh: 1.15, ps: 0.6, indent: false }, meta: { status: "Draft" },
+      icon: ic('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>') },
+    note: { name: "Note", color: "#f2d94e", desc: "A quick thought on a small sheet. Read as a sticky note.", ph: "Title (optional)",
+      page: pg("A6", 105, 148, [10, 10, 10, 10], "none", "paper"), text: { font: "Trebuchet MS", size: 12, lh: 1.4, ps: 0.4, indent: false }, meta: { color: "yellow" },
+      icon: ic('<path d="M4 4h16v10l-6 6H4z"/><path d="M14 20v-6h6"/>') },
+    email: { name: "Email", color: "#7fd1b9", desc: "To, from and a subject line. Read like a message in an inbox.", ph: "Subject",
+      page: pg("A5", 148, 210, [15, 15, 15, 15], "none", "white"), text: { font: "Segoe UI", size: 11, lh: 1.4, ps: 0.6, indent: false }, meta: { from: "", to: "" },
+      icon: ic('<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/>') },
+    journal: { name: "Journal", color: "#b79cf0", desc: "One entry per day, with a date. All entries read together in a leather journal.", ph: "Title (optional)",
+      page: BOOK_PAGE, text: { font: "Georgia", size: 11, lh: 1.6, ps: 0.4, indent: false }, meta: { date: "" },
+      icon: ic('<path d="M6 3h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6z"/><path d="M6 3v18M10 8h6M10 12h6"/>') },
+    chapter: { name: "Chapter", color: "#e08a5f", hidden: true, ph: "Chapter title",
+      icon: ic('<path d="M6 3h12v18l-6-4-6 4z"/>') }
+  };
+  PX.COVERS = { oxblood: ["#6e1f26", "Oxblood"], navy: ["#1f3354", "Navy"], forest: ["#20473a", "Forest"], charcoal: ["#2c2f36", "Charcoal"], plum: ["#4a2a52", "Plum"], tan: ["#8a5a2b", "Tan"] };
+  PX.NOTE_COLORS = { yellow: ["#f6e27a", "Yellow"], pink: ["#f4b6c2", "Pink"], blue: ["#a9d4f0", "Blue"], green: ["#b8e0a8", "Green"], orange: ["#f5c08a", "Orange"] };
+  PX.STATUSES = ["Draft", "In review", "Final"];
+
   PX.fixData = function () {
     const D = PX.D;
     D.docs = D.docs || {}; D.vocab = D.vocab || []; D.world = D.world || []; D.grammar = D.grammar || [];
@@ -33,17 +65,28 @@
       d.title = d.title || ""; d.lang = d.lang || "en"; d.html = d.html || "<p><br></p>";
       d.page = Object.assign({}, DEFAULT_PAGE, d.page); d.text = Object.assign({}, DEFAULT_TEXT, d.text);
       d.created = d.created || Date.now(); d.modified = d.modified || d.created; d.words = d.words || 0; d.comments = d.comments || [];
+      d.type = PX.TYPES[d.type] ? d.type : "story"; d.meta = d.meta || {};                                            // documents from before types existed are stories
+      if (d.type === "chapter" && !D.docs[d.parent]) { d.type = "story"; delete d.parent; }                          // a chapter whose book is gone becomes a story
+      if (d.type !== "chapter") delete d.parent; else d.order = d.order || 0;
     });
     PX.S.defaultPage = Object.assign({}, DEFAULT_PAGE, PX.S.defaultPage); PX.S.defaultText = Object.assign({}, DEFAULT_TEXT, PX.S.defaultText);
   };
   PX.fixData();
 
-  PX.newDoc = function (title, html) {
-    const id = U.uid(), now = Date.now();
-    PX.D.docs[id] = { id, title: title || "", lang: PX.S.defaultLang, html: html || "<p><br></p>", page: Object.assign({}, PX.S.defaultPage), text: Object.assign({}, PX.S.defaultText), created: now, modified: now, words: 0, comments: [] };
-    return PX.D.docs[id];
+  /* opts: { type, parent (book id, for a chapter), meta } */
+  PX.newDoc = function (title, html, opts) {
+    opts = opts || {};
+    const id = U.uid(), now = Date.now(), type = PX.TYPES[opts.type] ? opts.type : "story", T = PX.TYPES[type], parent = opts.parent && PX.D.docs[opts.parent];
+    const page = parent ? parent.page : T.page || PX.S.defaultPage, text = parent ? parent.text : T.text || PX.S.defaultText;      // a chapter starts with its book's page & text
+    const d = PX.D.docs[id] = { id, title: title || "", lang: parent ? parent.lang : PX.S.defaultLang, html: html || "<p><br></p>", page: Object.assign({}, page), text: Object.assign({}, text),
+      created: now, modified: now, words: 0, comments: [], type, meta: Object.assign({}, T.meta, opts.meta) };
+    if (type === "journal" && !d.meta.date) d.meta.date = U.today();
+    if (parent) { d.order = PX.chapters(parent.id).length; d.type = "chapter"; d.parent = parent.id; }
+    return d;
   };
   PX.docList = () => Object.values(PX.D.docs).sort((a, b) => b.modified - a.modified);
+  PX.chapters = bookId => Object.values(PX.D.docs).filter(d => d.type === "chapter" && d.parent === bookId).sort((a, b) => a.order - b.order || a.created - b.created);
+  PX.topList = () => PX.docList().filter(d => d.type !== "chapter");           // everything except chapters (those hang under their book)
   PX.cur = () => PX.D.docs[PX.ui.cur] || null;
 
   /* ---------- saving ---------- */

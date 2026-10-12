@@ -43,6 +43,20 @@ Run it locally: `python -m http.server 8124` in this folder, then open http://lo
 - From the text: select a name → right-click → **New world card…** (asks which type) or **Open world card** if it exists.
 - Note: the dialog's `close` event is not relied on for cleanup (the embedded preview browser never fires it); the Close button runs the cleanup itself and the event covers Esc.
 
+## Step 4: document types + the Read tab (`js/kinds.js`, `js/reading.js`)
+
+- **Types:** every document has `doc.type`: `story` (the old kind; documents without a type are stories), `book`, `document`, `note`, `email`, `journal`, and `chapter` (belongs to a book via `doc.parent`, order in `doc.order`; not offered in the New dialog). Definitions (icon, colour, description, starting page/text settings, default `meta`) are in `PX.TYPES` in `store.js`. Type-specific fields live in `doc.meta`: book `{author, cover}`, email `{from, to}` (subject = title), journal `{date}`, note `{color}`, document `{status}`.
+- **New…** opens a picker with the six types. A new book starts with one chapter. The row under the title (`#metaRow`) shows the type badge and its fields; a chapter shows a link back to its book.
+- **A book has no page of its own.** Its Write screen (`#bookHome`) is a chapter overview: cover preview, the automatic table of contents, add / reorder chapters, "Read this book". Each chapter is a normal document (comments, world cards, autosave all work per chapter) and starts with the book's page & text settings; "Page & text…" on a book can apply them to all chapters. Deleting a book deletes its chapters. Sidebar: chapters hang under their book.
+- **Read tab:** left list of every top-level document with its icon (filter by type, search); chapters are not listed, they are in the book. The view depends on the type:
+  - **book / journal:** an open book (CSS 3D, `.rb-leaf` per sheet, rotating around the spine). Closed cover → arrow keys / click turn the pages (Home/End jump). Front matter: cover, endpaper, title page, copyright page, **table of contents** (clickable, page numbers), chapters starting on right-hand pages, back cover. Journal = all journal entries sorted by date in one volume (no title page / contents; each entry starts on a new page with its date). Only sheets near the open spread are built.
+  - **document:** a clipboard; each page is a sheet hinged at the top edge that flips up and over (`rotateX`), fading behind the board; status stamp (Draft / In review / Final).
+  - **story:** one calm page at a time, slide transition, reading time.
+  - **email:** an inbox-style message (avatar, From/To, date, subject). **note:** a sticky note pinned to cork, in the chosen colour.
+- **Pages in the Read tab are the same pages as in Write.** `reading.js` contains a headless copy of the editor's break algorithm (`place()`; if `layout()` in `editor.js` changes, change it there too): the text is laid out once in a hidden box, spacers push lines that would be cut onto the next page, and a page is a window (`translateY(-n * pageStep)`) onto that column. Checked against Write: same page counts and same first words on every page.
+- Reading position per document is remembered in `PX.ui.readPos`. `prefers-reduced-motion` shortens the animations. Designed for PC only; no sound.
+- Not yet: world cards are still per document, so in a book they are per chapter; printing a whole book; email/note have no page flip (by design).
+
 ## Turkish letters on a German keyboard (autocorrect)
 
 - `js/turkish.js` + `data/tr-words.txt` (49,188 word forms with counts, derived from hermitdave's FrequencyWords `tr_50k.txt`, **CC-BY-SA-4.0**, see `data/NOTICE.txt`).
@@ -61,6 +75,8 @@ Spacers are never saved: `doc.html` is always the clean HTML.
 - `js/store.js` — data, `.phx` file, folder picker, backup
 - `js/editor.js` — page layout, history, formatting, paste clean-up
 - `js/app.js` — document list, toolbar, dialogs, menu, status bar
+- `js/kinds.js` — document types in Write: New… picker, fields under the title, book overview
+- `js/reading.js` — the Read tab: pagination, book / journal / document / story / email / note views
 - `Phoenix.phx` — your writing (never committed, see `.gitignore`)
 
 ## Next

@@ -10,13 +10,14 @@
   /* ---------- Write / Study ---------- */
   PX.setView = function (v) {
     PX.ui.view = v; PX.saveUI();
-    $("tabWrite").classList.toggle("on", v === "write"); $("tabStudy").classList.toggle("on", v === "study"); $("tabWorld").classList.toggle("on", v === "world");
-    $("work").hidden = v !== "write"; $("study").hidden = v !== "study"; $("world").hidden = v !== "world";
+    $("tabWrite").classList.toggle("on", v === "write"); $("tabRead").classList.toggle("on", v === "read"); $("tabStudy").classList.toggle("on", v === "study"); $("tabWorld").classList.toggle("on", v === "world");
+    $("work").hidden = v !== "write"; $("reading").hidden = v !== "read"; $("study").hidden = v !== "study"; $("world").hidden = v !== "world";
     $("side").classList.toggle("nov", v !== "write"); $("btnSide").style.visibility = v === "write" ? "" : "hidden";
     hideCtx();
-    if (v === "write") { E.layoutNow(); E.refreshComments(); } else if (v === "world") PX.world.render(); else renderStudy();
+    if (v === "write") { E.layoutNow(); E.refreshComments(); } else if (v === "read") PX.read.show(); else if (v === "world") PX.world.render(); else renderStudy();
   };
   $("tabWrite").onclick = () => PX.setView("write");
+  $("tabRead").onclick = () => PX.setView("read");
   $("tabStudy").onclick = () => PX.setView("study");
 
   /* ---------- comment colours on the page: on / off ---------- */
