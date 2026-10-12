@@ -101,11 +101,20 @@
   }
   function renderHead() {
     const d = PX.cur(); $("docTitle").value = d ? d.title : ""; $("docTitle").disabled = !d;
-    $("docLang").value = d ? d.lang : "en"; $("side").classList.toggle("off", !PX.ui.sidebar);
+    $("docLang").value = d ? d.lang : "en"; $("side").classList.toggle("off", !PX.ui.sidebar); syncTr();
   }
+  function syncTr() {                                // the Turkish-letters switch only shows for Turkish documents
+    const d = PX.cur(), tr = !!d && d.lang === "tr", b = $("btnTrAuto");
+    b.hidden = !tr; b.classList.toggle("on", PX.S.trAuto !== false); if (tr) PX.tr.ensure();
+  }
+  $("btnTrAuto").onclick = () => {
+    PX.S.trAuto = PX.S.trAuto === false; PX.save(); syncTr();
+    PX.toast(PX.S.trAuto === false ? "Turkish letter autocorrect is off." : "Turkish letter autocorrect is on: finish a word with a space and ç ş ğ ı are put back.");
+    E.focus();
+  };
   $("docTitle").addEventListener("input", e => { const d = PX.cur(); if (!d) return; d.title = e.target.value; d.modified = Date.now(); PX.saveSoon(); renderSide(); });
   $("docLang").innerHTML = Object.entries(PX.LANGS).map(([k, v]) => '<option value="' + k + '">' + v + "</option>").join("");
-  $("docLang").addEventListener("change", e => { const d = PX.cur(); if (!d) return; d.lang = e.target.value; PX.S.defaultLang = d.lang; E.refresh(); PX.saveSoon(); renderSide(); E.focus(); });
+  $("docLang").addEventListener("change", e => { const d = PX.cur(); if (!d) return; d.lang = e.target.value; PX.S.defaultLang = d.lang; E.refresh(); PX.saveSoon(); renderSide(); syncTr(); E.focus(); });
   $("btnNew").onclick = () => { const d = PX.newDoc(); PX.ui.cur = d.id; PX.saveUI(); PX.save(); loadCurrent(); renderSide(); renderHead(); $("docTitle").focus(); };
   $("btnSide").onclick = () => { const off = $("side").classList.toggle("off"); PX.ui.sidebar = !off; PX.saveUI(); };
 

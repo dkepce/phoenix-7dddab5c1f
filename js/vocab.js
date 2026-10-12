@@ -32,7 +32,8 @@
     const res = await Promise.all(CODES.filter(to => to !== from).map(to =>
       jget("https://api.mymemory.translated.net/get?q=" + encodeURIComponent(w) + "&langpair=" + from + "|" + to).then(j => {
         const t = j.responseData && j.responseData.translatedText;
-        return t && !/MYMEMORY WARNING|INVALID|QUERY LENGTH/i.test(t) && t.toLocaleLowerCase() !== w.toLocaleLowerCase() ? { to, t } : null;
+        const junk = !t || /MYMEMORY WARNING|INVALID|QUERY LENGTH/i.test(t) || /[a-zäöüßçğış][A-ZÄÖÜÇĞİŞ]/.test(t) || t.length > w.length * 4 + 12;    // machine garbage such as "bIROUOW"
+        return !junk && t.toLocaleLowerCase() !== w.toLocaleLowerCase() ? { to, t } : null;
       }).catch(() => null)));
     return res.filter(Boolean);
   }
@@ -79,7 +80,11 @@
     else PX.lookup("", null, "", PX.ui.cur);
   };
   async function doLookup(noFix) {
-    const w = $("lWord").value.trim(), lang = langSel.value; if (!w) { $("lWord").focus(); return; }
+    let w = $("lWord").value.trim(); const lang = langSel.value; if (!w) { $("lWord").focus(); return; }
+    if (lang === "tr" && !noFix && PX.tr) {          // the built-in Turkish word list first (instant, offline); Wiktionary spellings are the fallback below
+      await PX.tr.ensure(); const f = PX.tr.fixWord(w);
+      if (f !== w) { L.fixNote = "Turkish letters added: “" + w + "” → “" + f + "”."; $("lWord").value = f; w = f; }
+    }
     const my = ++L.seq; $("lRes").innerHTML = '<div class="none">Looking up…</div>'; $("lSug").innerHTML = "";
     let wk = null, tr = [], fail = false;
     await Promise.all([wiktionary(w, lang).then(r => { wk = r; }).catch(() => { fail = true; }), translate(w, lang).then(r => { tr = r; })]);
@@ -90,9 +95,14 @@
       const alts = await trAlternatives(w); if (my !== L.seq) return;
       if (alts.length) {
         $("lWord").value = alts[0];
+        if (L.autoTrans && $("lTrans").value === L.autoTrans) $("lTrans").value = "";      // that translation was fetched for the misspelt word: drop it
         L.fixNote = "Turkish letters added: “" + w + "” → “" + alts[0] + "”." + (alts.length > 1 ? " Other spellings that exist: " + alts.slice(1).join(", ") + "." : "");
         return doLookup(true);
       }
+    }
+    if (lang !== "en" && ents.length) {              // the English gloss from the dictionary is better than a machine translation into English
+      const gloss = ents[0].defs[0].replace(/^\([^)]*\)\s*/, "").split(/[;,]/)[0].trim().slice(0, 50);
+      if (gloss) tr = [{ to: "en", t: gloss }, ...tr.filter(x => x.to !== "en")];
     }
     L.list = []; let html = "";
     if (L.fixNote) { html = '<div class="warn2">' + U.esc(L.fixNote) + "</div>"; L.fixNote = ""; }
@@ -106,7 +116,7 @@
     if (tr.length) html += '<div class="trs">' + tr.map(x => '<span class="trchip">' + x.to.toUpperCase() + ": <b>" + U.esc(x.t) + "</b></span>").join("") + "</div>";
     $("lRes").innerHTML = html;
     if (!$("lDef").value && L.list[0]) { $("lDef").value = L.list[0].text; L.pos.add(L.list[0].pos); }
-    if (!$("lTrans").value && tr.length) $("lTrans").value = tr.map(x => x.to.toUpperCase() + ": " + x.t).join(" · ");
+    if (!$("lTrans").value && tr.length) { L.autoTrans = tr.map(x => x.to.toUpperCase() + ": " + x.t).join(" · "); $("lTrans").value = L.autoTrans; }
     if (ents.length && wk.title !== w) $("lWord").value = wk.title;       // keep the dictionary's own spelling (e.g. German capital letter)
     showSug(!ents.length);
   }

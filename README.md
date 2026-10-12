@@ -27,6 +27,14 @@ Run it locally: `python -m http.server 8124` in this folder, then open http://lo
 - The example sentence is the sentence around the selection (`selectionInfo().sentence`). Cards are saved in `data.vocab`: `{word, lang, pos, def, trans, sentence, note, doc, created}`.
 - Study → Vocabulary: tree (All words / English / Deutsch / Türkçe) and A–Z cards with a filter box. No progress tags or quiz yet (decided with Doruk; quiz maybe later).
 
+## Turkish letters on a German keyboard (autocorrect)
+
+- `js/turkish.js` + `data/tr-words.txt` (49,188 word forms with counts, derived from hermitdave's FrequencyWords `tr_50k.txt`, **CC-BY-SA-4.0**, see `data/NOTICE.txt`).
+- In a Turkish document, when a word is finished (space, punctuation, Enter) c/g/i/s are turned into ç/ğ/ı/ş where that is the real spelling. Known words: the most common form wins (typed form kept unless the other is ≥2× as common). Unknown words: a character 4-gram model trained on the list decides, only when clearly better (margin 1.5). ü/ö are taken as typed (they are on a German keyboard). Capitalised words starting with I become İ (İzmir). Apostrophe suffixes (Ankara'nın) are judged together with the stem.
+- Measured on held-out words (script in the session scratchpad, not in the repo): ~99 % right for known words; for unseen words ~80 % fixed while ~96 % of plain unseen words stay untouched.
+- Switch: the amber "ç ş ğ ı auto" button next to the language select (only for Turkish documents), stored as `settings.trAuto`. Ctrl+Z right after a correction restores what was typed and remembers the word in `settings.trKeep`, so it is not corrected again.
+- The look-up panel uses the same engine first, then falls back to asking Wiktionary which spellings exist.
+
 ## How the pages work (so a future session doesn't have to rediscover it)
 
 There is one `contenteditable` column. After every change `js/editor.js` removes and re-inserts invisible `.pgap` spacers so no line is cut by a page edge (block-level before a paragraph, or inline inside a paragraph at the first line that does not fit). The white sheets are drawn behind the text. Because the spacers change the DOM, undo/redo is our own (snapshots of the clean HTML), not the browser's.

@@ -1,0 +1,11 @@
+data/tr-words.txt
+-----------------
+Derived from "tr_50k.txt" of the FrequencyWords project by hermitdave
+(https://github.com/hermitdave/FrequencyWords), the 2018 Turkish list
+(built from the OpenSubtitles corpus, https://opus.nlpl.eu/OpenSubtitles2018.php).
+Changes: entries that are not made only of Turkish letters were removed and the
+columns are separated by a tab.
+
+License of the content: Creative Commons Attribution-ShareAlike 4.0 (CC-BY-SA-4.0),
+https://creativecommons.org/licenses/by-sa/4.0/ . This file stays under that license.
+It is used by Phoenix to put the Turkish letters c-cedilla, g-breve, dotless i and s-cedilla back into words typed without them.

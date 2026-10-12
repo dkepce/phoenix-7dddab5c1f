@@ -195,6 +195,7 @@
     if (hidx >= 0 && hidx === hist.length - 1 && !breakNext && now - lastPush < 900) hist[hidx] = entry;
     else { hist.length = hidx + 1; hist.push(entry); hidx++; lastPush = now; if (hist.length > 300) { hist.shift(); hidx--; } }
     breakNext = false;
+    if (pendingAuto) { pendingAuto.entry = hist[hidx]; lastAuto = pendingAuto; pendingAuto = null; }
     doc.html = html; doc.modified = Date.now(); doc.words = U.words(ed.textContent);
     PX.saveSoon();
   }
@@ -203,7 +204,15 @@
     layout(); doc.html = ed.innerHTML; doc.modified = Date.now(); doc.words = U.words(ed.textContent); PX.saveSoon();
     caretIntoView();
   }
-  E.undo = function () { E.layoutNow(); if (hidx > 0) { hidx--; restore(hist[hidx]); } };
+  E.undo = function () {
+    E.layoutNow();
+    if (lastAuto && hist[hidx] === lastAuto.entry) {      // undoing the automatic correction itself means "leave this word alone"
+      PX.S.trKeep = PX.S.trKeep || {}; PX.S.trKeep[lastAuto.typed.toLowerCase()] = 1; PX.saveSoon();
+      PX.toast("Okay, “" + lastAuto.typed + "” will not be changed again.");
+    }
+    lastAuto = null;
+    if (hidx > 0) { hidx--; restore(hist[hidx]); }
+  };
   E.redo = function () { E.layoutNow(); if (hidx < hist.length - 1) { hidx++; restore(hist[hidx]); } };
   E.canUndo = () => hidx > 0; E.canRedo = () => hidx < hist.length - 1;
 
@@ -395,6 +404,34 @@
     return true;
   };
 
+  /* ---------- Turkish autocorrect: when a word is finished (space, punctuation, Enter) put ç ş ğ ı back ---------- */
+  let lastAuto = null, pendingAuto = null;        // the last automatic correction, so that Ctrl+Z can both undo it and teach us to leave that word alone
+  function wordBeforeCaret() {
+    const s = getSelection(); if (!s.rangeCount || !s.isCollapsed) return null;
+    const r = s.getRangeAt(0), tn = r.startContainer; if (tn.nodeType !== 3 || !ed.contains(tn)) return null;
+    const before = tn.nodeValue.slice(0, r.startOffset), m = before.match(/[\p{L}'’]+$/u); if (!m) return null;
+    const start = before.length - m[0].length, prev = before[start - 1];
+    if (prev && /[\p{L}\p{N}@\/\\_#.:\-]/u.test(prev)) return null;            // part of an e-mail address, a path, a number...
+    return { tn, start, end: before.length, word: m[0] };
+  }
+  function autoFix(e) {
+    if (!doc || doc.lang !== "tr" || PX.S.trAuto === false || !PX.tr || !PX.tr.ready) return false;
+    const isDelim = e.inputType === "insertText" && e.data && /^[ .,;:!?)"”»]$/.test(e.data), isEnter = e.inputType === "insertParagraph";
+    if (!isDelim && !isEnter) return false;
+    const w1 = wordBeforeCaret(); if (!w1) return false;
+    const fixed = PX.tr.fixWord(w1.word); if (fixed === w1.word) return false;
+    e.preventDefault();
+    E.layoutNow();                                 // snapshot "word as typed" first, so Ctrl+Z brings exactly that back
+    const w = wordBeforeCaret(); const ok = w && w.word === w1.word;
+    if (ok) {
+      breakNext = true;
+      getSelection().setBaseAndExtent(w.tn, w.start, w.tn, w.end); document.execCommand("insertText", false, fixed);
+      pendingAuto = { typed: w1.word };            // becomes lastAuto once the next history entry exists (see snapshot)
+    }
+    document.execCommand(isEnter ? "insertParagraph" : "insertText", false, e.data);
+    scheduleLayout(true); return true;
+  }
+
   /* ---------- wiring ---------- */
   E.init = function () {
     ed = document.getElementById("editor"); paper = document.getElementById("paper"); sheets = document.getElementById("sheets");
@@ -404,6 +441,7 @@
     ed.addEventListener("compositionstart", () => { composing = true; });
     ed.addEventListener("compositionend", () => { composing = false; scheduleLayout(false); });
     ed.addEventListener("beforeinput", e => {
+      if (autoFix(e)) return;
       if (e.inputType === "historyUndo") { e.preventDefault(); E.undo(); }
       else if (e.inputType === "historyRedo") { e.preventDefault(); E.redo(); }
       else if (/^(deleteContent|insertFromPaste|insertFromDrop|formatBold|formatItalic|formatUnderline)/.test(e.inputType) && e.inputType !== "deleteContentBackward") breakNext = true;

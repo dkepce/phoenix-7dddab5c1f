@@ -39,6 +39,7 @@
       <div id="titleRow">
         <input id="docTitle" placeholder="Untitled" autocomplete="off" spellcheck="false">
         <select id="docLang" title="Language of this document (spell-check follows it)"></select>
+        <button id="btnTrAuto" class="tog" hidden title="Turkish letters: when you finish a word typed without ç ş ğ ı, Phoenix puts them back. Ctrl+Z right after a correction undoes it and teaches Phoenix to leave that word alone.">ç ş ğ ı auto</button>
         <button id="btnSetup" title="Page size, margins, fonts, spacing">Page &amp; text…</button>
       </div>
       <div id="toolbar"></div>
@@ -166,6 +167,7 @@
 
 <script src="js/util.js"></script>
 <script src="js/store.js"></script>
+<script src="js/turkish.js"></script>
 <script src="js/editor.js"></script>
 <script src="js/app.js"></script>
 <script src="js/study.js"></script>
