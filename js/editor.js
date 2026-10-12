@@ -248,6 +248,7 @@
       if (el.tagName === "FONT") { const s = document.createElement("span"); while (el.firstChild) s.appendChild(el.firstChild); el.replaceWith(s); el = s; }
       el.style.fontSize = pendingSize + "pt";
     });
+    ed.querySelectorAll("span[style*='text-align'], font[style*='text-align']").forEach(el => el.style.removeProperty("text-align"));    // alignment belongs to the paragraph; a stray one inside only confuses the alignment buttons
     ed.querySelectorAll("font[face]").forEach(el => { const s = document.createElement("span"); s.style.fontFamily = el.getAttribute("face"); while (el.firstChild) s.appendChild(el.firstChild); el.replaceWith(s); });
   }
   let lastRange = null;                       // the selection before the user clicked a dropdown in the toolbar
@@ -258,6 +259,25 @@
   }
   E.cmd = function (name, arg) { focusEd(); document.execCommand(name, false, arg); scheduleLayout(true); };
   E.block = tag => E.cmd("formatBlock", "<" + tag + ">");
+  /* alignment is set on the paragraphs themselves (not through the browser's justify command, which gives up when it believes the text is already aligned) */
+  const LEAF = "p,h1,h2,h3,h4,h5,h6,li,blockquote";
+  E.align = function (kind) {
+    focusEd(); const s = getSelection(); if (!s.rangeCount || !ed.contains(s.anchorNode)) return;
+    const r = s.getRangeAt(0), blocks = [];
+    ed.querySelectorAll(LEAF).forEach(b => {
+      if (b.closest("[data-hd], figure.fig") || b.querySelector(LEAF)) return;                       // not the locked heading, a caption, or a block that only wraps other blocks
+      if (r.collapsed) { if (b.contains(r.startContainer)) blocks.push(b); return; }
+      if (!r.intersectsNode(b)) return;
+      const rr = document.createRange(); rr.selectNodeContents(b); const inter = r.cloneRange();
+      if (inter.compareBoundaryPoints(Range.START_TO_START, rr) < 0) inter.setStart(rr.startContainer, rr.startOffset);
+      if (inter.compareBoundaryPoints(Range.END_TO_END, rr) > 0) inter.setEnd(rr.endContainer, rr.endOffset);
+      const empty = !b.textContent.trim();                                                              // a selection that only touches the start of the next paragraph does not count
+      if (inter.toString().trim() || (empty && r.comparePoint(b, 0) === 0 && r.comparePoint(b, b.childNodes.length) === 0)) blocks.push(b);
+    });
+    if (!blocks.length) { document.execCommand({ left: "justifyLeft", center: "justifyCenter", right: "justifyRight", justify: "justifyFull" }[kind]); E.touch(); return; }
+    blocks.forEach(b => { b.style.textAlign = kind; b.querySelectorAll("[style*='text-align']").forEach(x => x.style.removeProperty("text-align")); });
+    E.touch();
+  };
   E.setSize = function (pt) { pendingSize = pt; E.cmd("fontSize", "7"); };
   E.setFont = name => E.cmd("fontName", name);
   E.focus = () => ed.focus();
@@ -269,9 +289,10 @@
     let el = s.anchorNode.nodeType === 3 ? s.anchorNode.parentElement : s.anchorNode; if (!el || el === ed) el = ed.firstElementChild || ed;
     const cs = getComputedStyle(el), q = c => { try { return document.queryCommandState(c); } catch (e) { return false; } };
     let b = el; while (b && b !== ed && !BLOCKS.test(b.tagName) && !/^(UL|OL)$/.test(b.tagName)) b = b.parentElement;
+    const al = b && b !== ed ? getComputedStyle(b).textAlign : "left";                 // what is really shown, not what the browser's command thinks
     return {
       bold: q("bold"), italic: q("italic"), underline: q("underline"), strike: q("strikeThrough"), ul: q("insertUnorderedList"), ol: q("insertOrderedList"),
-      left: q("justifyLeft"), center: q("justifyCenter"), right: q("justifyRight"), full: q("justifyFull"),
+      left: /^(left|start)$/.test(al), center: al === "center", right: al === "right", full: al === "justify",
       block: b && b !== ed ? (b.tagName === "LI" ? "P" : b.tagName) : "P",
       size: Math.round(U.px2pt(parseFloat(cs.fontSize)) * 2) / 2, font: cs.fontFamily.split(",")[0].replace(/["']/g, "").trim()
     };

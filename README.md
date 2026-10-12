@@ -74,6 +74,8 @@ Run it locally: `python -m http.server 8124` in this folder, then open http://lo
 There is one `contenteditable` column. After every change `js/editor.js` removes and re-inserts invisible `.pgap` spacers so no line is cut by a page edge (block-level before a paragraph, or inline inside a paragraph at the first line that does not fit). The white sheets are drawn behind the text. Because the spacers change the DOM, undo/redo is our own (snapshots of the clean HTML), not the browser's.
 Spacers are never saved: `doc.html` is always the clean HTML.
 
+Alignment (`E.align` in `editor.js`) is set directly on the paragraphs / headings touched by the selection (`style="text-align: …"`), not through the browser's `justify…` commands: those do nothing when the browser believes the text is already aligned, which a stray `text-align` on an inline `<span>` (left behind by older edits) made it believe. The toolbar highlight comes from the paragraph's computed `text-align`, and stray inline `text-align` on spans is removed on every layout.
+
 ## Files
 
 - `js/store.js` — data, `.phx` file, folder picker, backup
