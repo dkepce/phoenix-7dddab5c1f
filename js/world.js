@@ -1,9 +1,9 @@
-/* Phoenix — World (step 3): cards for characters, locations, races and items, linked to each other.
+/* Phoenix — World (step 3): cards for characters, locations, races, items, magic systems and spells, linked to each other.
    A link field ("Birthplace", "Race", ...) takes a name: if no card of that kind has the name yet, a new card is created and linked. */
 (function (PX) {
   const U = PX.U, E = PX.ed, $ = id => document.getElementById(id);
   const W = (PX.world = { tmp: { node: null, q: "", stack: [] } });
-  const ORDER = ["character", "location", "race", "item"];
+  const ORDER = ["character", "location", "race", "item", "magic", "spell"];
   const TYPES = {
     character: {
       label: "Character", plural: "Characters", summary: ["age", "gender", "race", "birthplace"],
@@ -48,6 +48,34 @@
         { k: "owner", label: "Owner", kind: "link", to: "character" },
         { k: "desc", label: "Description", kind: "long" },
         { k: "history", label: "History", kind: "long" }]
+    },
+    magic: {
+      label: "Magic system", plural: "Magic systems", summary: ["source", "races", "users"],
+      fields: [
+        { k: "source", label: "Source of the power", kind: "text", ph: "e.g. the heat of the forge, the moon, spirits" },
+        { k: "races", label: "Peoples who can use it", kind: "links", to: "race" },
+        { k: "users", label: "Known users", kind: "links", to: "character" },
+        { k: "items", label: "Tied to items", kind: "links", to: "item" },
+        { k: "places", label: "Tied to places", kind: "links", to: "location" },
+        { k: "desc", label: "How it works", kind: "long" },
+        { k: "schools", label: "Schools / branches", kind: "long" },
+        { k: "cost", label: "Cost", kind: "long" },
+        { k: "limits", label: "Limits (what it cannot do)", kind: "long" },
+        { k: "dangers", label: "Dangers (what goes wrong)", kind: "long" },
+        { k: "history", label: "History", kind: "long" }]
+    },
+    spell: {
+      label: "Spell / ability", plural: "Spells", summary: ["system", "school", "level"],
+      fields: [
+        { k: "system", label: "Magic system", kind: "link", to: "magic" },
+        { k: "school", label: "School / branch", kind: "text" },
+        { k: "level", label: "Level / difficulty", kind: "text", ph: "e.g. novice, master, forbidden" },
+        { k: "users", label: "Known by", kind: "links", to: "character" },
+        { k: "items", label: "Needs / bound to items", kind: "links", to: "item" },
+        { k: "effect", label: "Effect", kind: "long" },
+        { k: "casting", label: "How it is cast (words, gestures, ingredients)", kind: "long" },
+        { k: "cost", label: "Cost & risks", kind: "long" },
+        { k: "history", label: "Origin & history", kind: "long" }]
     }
   };
   W.TYPES = TYPES;
@@ -111,7 +139,7 @@
       const long = T.fields.filter(f => f.kind === "long").map(f => c.f[f.k]).find(Boolean) || c.notes || "";
       return '<div class="wcard ' + c.type + '" data-id="' + c.id + '"><span class="k wt ' + c.type + '">' + T.label + '</span><div class="wname">' + U.esc(c.name || "Unnamed") + "</div>" +
         (bits.length ? '<div class="wsum">' + U.esc(bits.join(" · ")) + "</div>" : "") + (long ? '<div class="wsnip">' + U.esc(long.length > 120 ? long.slice(0, 119).trimEnd() + "…" : long) + "</div>" : "") + "</div>";
-    }).join("") || '<div class="none center">' + (cards().some(c => c.doc === n.d) ? "No card matches." : (n.d ? "This book has no world cards yet.<br><br>Use the buttons above to add a character, a location, a race or an item.<br>Fields like <b>Birthplace</b> or <b>Race</b> create and link the other cards for you.<br><br>You can also select a name in a chapter, right-click and choose <b>New world card…</b>." : "Make a Book first, then its world lives here.")) + "</div>";
+    }).join("") || '<div class="none center">' + (cards().some(c => c.doc === n.d) ? "No card matches." : (n.d ? "This book has no world cards yet.<br><br>Use the buttons above to add a character, a location, a race, an item, a magic system or a spell.<br>Fields like <b>Birthplace</b> or <b>Race</b> create and link the other cards for you.<br><br>You can also select a name in a chapter, right-click and choose <b>New world card…</b>." : "Make a Book first, then its world lives here.")) + "</div>";
   }
   W.render = function () { renderTree(); renderPane(); };
   $("wTree").addEventListener("click", e => {

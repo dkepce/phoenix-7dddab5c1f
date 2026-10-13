@@ -223,10 +223,10 @@ select option { background: var(--bg2); }
 #wHead input { width: 170px; } .wnew { font-size: 13px; padding: 4px 10px; border-radius: 99px; }
 #wCards { flex: 1; overflow: auto; padding: 4px 24px 40px; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; align-items: start; align-content: start; }
 #wCards .none { grid-column: 1 / -1; }
-.k.wt { background: var(--panel2); } .k.wt.character { background: var(--accent); color: #2a1305; } .k.wt.location { background: #3f6fb5; color: #eef4ff; } .k.wt.race { background: var(--accent2); color: #2a1c05; } .k.wt.item { background: var(--crimson); color: #ffe9e0; }
+.k.wt { background: var(--panel2); } .k.wt.character { background: var(--accent); color: #2a1305; } .k.wt.location { background: #3f6fb5; color: #eef4ff; } .k.wt.race { background: var(--accent2); color: #2a1c05; } .k.wt.item { background: var(--crimson); color: #ffe9e0; } .k.wt.magic { background: #7b4fb0; color: #f3eaff; } .k.wt.spell { background: #2f9a8a; color: #e6fffb; }
 .wcard { background: #fbf6e6; color: #2a241f; border-radius: 6px; padding: 14px 18px 14px; box-shadow: 0 6px 24px rgba(0, 0, 0, .45); border-top: 5px solid var(--accent); cursor: pointer; }
 .wcard:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0, 0, 0, .55); }
-.wcard.location { border-top-color: #3f6fb5; } .wcard.race { border-top-color: var(--accent2); } .wcard.item { border-top-color: var(--crimson); }
+.wcard.location { border-top-color: #3f6fb5; } .wcard.race { border-top-color: var(--accent2); } .wcard.item { border-top-color: var(--crimson); } .wcard.magic { border-top-color: #7b4fb0; } .wcard.spell { border-top-color: #2f9a8a; }
 .wname { font: 700 21px Georgia, serif; margin: 8px 0 2px; } .wsum { font: 13px "Segoe UI", system-ui, sans-serif; color: #5b5240; } .wsnip { font: 13px/1.5 "Segoe UI", system-ui, sans-serif; color: #7a705f; margin-top: 8px; }
 #dlgCard { max-width: 780px; max-height: 90vh; padding: 0; overflow: hidden; }
 #wcBody { padding: 18px 22px 20px; max-height: 90vh; overflow: auto; }
